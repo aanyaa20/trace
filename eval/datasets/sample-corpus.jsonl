@@ -1,0 +1,25 @@
+// Labelled questions over the seeded sample corpus. One JSON object per line.
+// Relevance is labelled by filename: chunk ids are regenerated on every
+// re-ingest, so a dataset keyed to them would score zero the first time the
+// corpus is rebuilt and look like a retrieval regression.
+{"id":"q01","question":"What two signals does the retrieval layer combine?","relevantDocuments":["handbook.pdf"],"relevantPages":[1],"expectAnswerContains":["BM25"],"unanswerable":false,"modality":"pdf","note":"single page, plain text layer"}
+{"id":"q02","question":"How large are chunks and how much do they overlap?","relevantDocuments":["handbook.pdf"],"relevantPages":[2],"unanswerable":false,"modality":"pdf"}
+{"id":"q03","question":"What happens to a chunk that would span two pages?","relevantDocuments":["handbook.pdf"],"relevantPages":[2],"unanswerable":false,"modality":"pdf","note":"page attribution is the guarantee the system makes"}
+{"id":"q04","question":"When does the system abstain instead of answering?","relevantDocuments":["handbook.pdf"],"relevantPages":[3],"unanswerable":false,"modality":"pdf"}
+{"id":"q05","question":"Is the sufficiency gate deterministic or model-decided?","relevantDocuments":["handbook.pdf"],"relevantPages":[3],"unanswerable":false,"modality":"pdf"}
+{"id":"q06","question":"Which metrics does the evaluation protocol record against labelled chunks?","relevantDocuments":["protocol.txt"],"expectAnswerContains":["recall"],"unanswerable":false,"modality":"text"}
+{"id":"q07","question":"When does a citation count as correct?","relevantDocuments":["protocol.txt"],"unanswerable":false,"modality":"text","note":"only when the cited span supports the claim"}
+{"id":"q08","question":"How is the abstention curve produced?","relevantDocuments":["protocol.txt"],"unanswerable":false,"modality":"text"}
+{"id":"q09","question":"What minimum score gave the best balance in the threshold sweep?","relevantDocuments":["scanned-notes.pdf"],"expectAnswerContains":["0.55"],"unanswerable":false,"modality":"pdf","note":"OCR path: this text exists only as a scan"}
+{"id":"q10","question":"What went wrong at lower threshold values in experiment 4?","relevantDocuments":["scanned-notes.pdf"],"unanswerable":false,"modality":"pdf","note":"OCR path"}
+{"id":"q11","question":"What does the briefing say happens to each retrieved passage?","relevantDocuments":["briefing.mp3","lecture.mp4"],"unanswerable":false,"modality":"audio","note":"same script in two modalities; recall should find both"}
+{"id":"q12","question":"According to the recording, what is the first step after a query arrives?","relevantDocuments":["briefing.mp3","lecture.mp4"],"unanswerable":false,"modality":"audio","note":"transcript, cited to a timestamp"}
+{"id":"q13","question":"What are the stages of the trace pipeline in the architecture diagram?","relevantDocuments":["architecture.png"],"unanswerable":false,"modality":"image","note":"image caption and OCR path"}
+{"id":"q14","question":"Who is the invoice from and who is it addressed to?","relevantDocuments":["invoice_99000.pdf"],"unanswerable":false,"modality":"pdf"}
+{"id":"q15","question":"What payment methods does the invoice list?","relevantDocuments":["invoice_99000.pdf"],"unanswerable":false,"modality":"pdf"}
+{"id":"q16","question":"Which documents describe how retrieval is graded?","relevantDocuments":["handbook.pdf","briefing.mp3","lecture.mp4"],"unanswerable":false,"note":"multi-document: recall is the metric that matters here"}
+{"id":"u01","question":"What is the company's parental leave entitlement?","relevantDocuments":[],"unanswerable":true,"note":"nothing in the corpus covers HR policy"}
+{"id":"u02","question":"How many employees does Decathlon India have?","relevantDocuments":[],"unanswerable":true,"note":"the invoice names the company but states no headcount; tests a plausible-looking near miss"}
+{"id":"u03","question":"What is the p99 latency of the Qdrant cluster in production?","relevantDocuments":[],"unanswerable":true,"note":"on-topic vocabulary, no supporting content: the hardest abstention case"}
+{"id":"u04","question":"Which GPU model was used to train the embedding model?","relevantDocuments":[],"unanswerable":true,"note":"the corpus describes the pipeline but never the training hardware"}
+{"id":"u05","question":"What did the threshold sweep conclude about experiment 9?","relevantDocuments":[],"unanswerable":true,"note":"experiment 4 exists, 9 does not: tests whether a near-miss retrieval gets answered anyway"}

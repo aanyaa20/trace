@@ -1,0 +1,15 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm refuses to run dependency install scripts unless they are approved
+# here. esbuild fetches its platform binary and argon2 resolves a native
+# prebuild, so neither is optional; the rest are transitive accelerators.
+# Regenerate with `pnpm approve-builds --all --yes` after adding a dependency
+# whose install is blocked.
+allowBuilds:
+  '@google/genai': true
+  argon2: true
+  esbuild: true
+  msgpackr-extract: true
+  protobufjs: true

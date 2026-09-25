@@ -1,0 +1,1632 @@
+@import "tailwindcss";
+
+/*
+ * Two themes. Light is the default and is built from the file-manager
+ * references: white cards on a soft grey page, hairline borders, one accent.
+ * Dark is the reading room: a green room where anything cited is printed on
+ * parchment.
+ *
+ * Both define the same names, so every component is written once. The accent
+ * stays vermillion in both rather than following the references' blue: it is
+ * the one colour that means "this is evidence, or the thing pointing at it",
+ * and that meaning should not change when the lights go on.
+ */
+:root,
+[data-theme='light'] {
+  /* Warm beige, not white. A document library should feel like paper on a
+     desk; a pure-white page makes every rendered PDF look like a hole in it. */
+  --paper: #f4f1e8;
+  --paper-sunk: #eae5d8;
+  --surface: #fdfbf6;
+  --surface-raised: #ffffff;
+  --rule: #ddd6c6;
+  --rule-strong: #c8bfa9;
+  --ink: #1f1b16;
+  --ink-muted: #5a5249;
+  --ink-faint: #8a8173;
+  --vermillion: #c2441f;
+  --moss: #4f6b3e;
+  --ochre: #9a6b1f;
+  --highlight: rgba(242, 201, 76, 0.5);
+
+  /* Parchment sits a shade warmer and lighter than the page it lies on, so a
+     citation still reads as a different material rather than as the page. */
+  --card-bg: #f9f0d8;
+  --card-ink: #1a1714;
+  --card-ink-muted: #5b534c;
+  --card-ink-faint: #8a7c5c;
+  --card-rule: #e6d5a8;
+  --card-accent: #b83a20;
+  --card-highlight: rgba(242, 201, 76, 0.55);
+
+  --shadow-row: 0 1px 2px rgb(34 30 24 / 0.05);
+
+  /* Chat bubbles. Your own message carries the accent the way it does in every
+     messenger, so the side a message sits on is never the only thing telling
+     you who said it. Vera answers on paper, because her turn is the one that
+     holds citations and citations are printed, not spoken. */
+  --bubble-me: #c2441f;
+  --bubble-me-ink: #fff6f2;
+  --bubble-vera: var(--surface-raised);
+  --bubble-vera-ink: var(--ink);
+  --bubble-vera-rule: var(--rule);
+
+  /* The sign-in panel. Two beiges side by side read as a rendering fault
+     rather than a decision, so the panel goes to ink and the specimen on it
+     goes to parchment — which is the system's own idea: the room is dark, and
+     anything that is a cited receipt is printed. */
+  --auth-panel: #211b15;
+  --auth-panel-ink: #f3eee3;
+  --auth-panel-muted: #a89d8b;
+  --auth-panel-rule: #3b322a;
+}
+
+[data-theme='dark'] {
+  /* Near-black with a green cast: the reading room with the lights off. Deep
+     enough to read as black, warm enough that parchment does not glare. */
+  --paper: #0d1110;
+  --paper-sunk: #121816;
+  --surface: #182020;
+  --surface-raised: #1f2926;
+  --rule: #26322d;
+  --rule-strong: #35443d;
+  --ink: #eceee9;
+  --ink-muted: #aab3ac;
+  --ink-faint: #7f8a83;
+  --vermillion: #e8674a;
+  --moss: #a9c98e;
+  --ochre: #e0ae52;
+  --highlight: rgba(242, 201, 76, 0.3);
+
+  --card-bg: #f3e3b0;
+  --card-ink: #1a1714;
+  --card-ink-muted: #5b534c;
+  --card-ink-faint: #857757;
+  --card-rule: #d3be7e;
+  --card-accent: #b83a20;
+  --card-highlight: rgba(242, 201, 76, 0.45);
+
+  --shadow-row: none;
+
+  /* A banked vermillion, well below the accent: the bubble is a filled block
+     rather than a hairline, and at full strength a column of them glows off a
+     near-black room and pulls the eye away from the answers. Dropped until it
+     reads as your side of the thread and nothing louder — the text on it still
+     clears 8:1. */
+  --bubble-me: #6a2d1b;
+  --bubble-me-ink: #fbeae4;
+  --bubble-vera: var(--surface);
+  --bubble-vera-ink: var(--ink);
+  --bubble-vera-rule: var(--rule);
+
+  /* The room is already dark, so the panel steps up rather than down — far
+     enough off the page to be a surface, not so far it becomes a second
+     accent. The parchment on it carries the contrast. */
+  --auth-panel: #18211f;
+  --auth-panel-ink: #eceee9;
+  --auth-panel-muted: #9aa49d;
+  --auth-panel-rule: #2c3833;
+}
+
+:root {
+  /* Height of the sticky top bar. The landing hero sizes itself against this
+     so it ends exactly at the fold rather than at a number guessed once and
+     left to drift when the bar's padding changes. */
+  --bar: 61px;
+  --dur: 200ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur: 0ms;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-sunk: var(--paper-sunk);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-vermillion: var(--vermillion);
+  --color-moss: var(--moss);
+  --color-ochre: var(--ochre);
+
+  --color-card: var(--card-bg);
+  --color-card-ink: var(--card-ink);
+  --color-card-ink-muted: var(--card-ink-muted);
+  --color-card-ink-faint: var(--card-ink-faint);
+  --color-card-rule: var(--card-rule);
+  --color-card-accent: var(--card-accent);
+
+  /* One sans for everything a person reads, one mono for everything a machine
+     verified. The second distinction is load-bearing here: a page number and a
+     character range are coordinates, and setting them apart from prose is what
+     stops a citation reading as a claim. */
+  /* Three roles, not two. The serif is for anything that is being read —
+     headings, an answer, the body of a document — because an answer with
+     citations in it is a piece of writing and setting it in an interface font
+     was what made this app read as an admin panel. Inter stays for the chrome
+     around it: labels, buttons, table cells, anything you operate rather than
+     read. Source Serif carries an optical size axis, so the same family holds
+     from a 13px paragraph to a 40px heading without going spindly. */
+  --font-display: 'Source Serif 4', Charter, Georgia, 'Times New Roman', serif;
+  --font-reading: 'Source Serif 4', Charter, Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+
+  --radius-sm: 4px;
+  --radius-DEFAULT: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+}
+
+:root {
+  /* A type scale, so a page stops inventing a size per element. Named for the
+     job rather than the pixel count, which is what keeps two pages agreeing. */
+  --text-meta: 11px;
+  --text-small: 12px;
+  --text-ui: 13px;
+  --text-body: 14px;
+  --text-lede: 15px;
+  --text-title: 19px;
+  --text-page: 24px;
+  --text-display: 30px;
+
+  /* Elevation. Dark themes read depth as light, not as shadow, so the raised
+     surface carries a hairline highlight rather than a drop shadow. */
+  --elev-1: 0 1px 2px rgb(20 16 10 / 0.06);
+  --elev-2: 0 2px 8px rgb(20 16 10 / 0.08);
+  --focus-ring: 0 0 0 2px var(--paper), 0 0 0 4px var(--vermillion);
+}
+
+[data-theme='dark'] {
+  --elev-1: 0 1px 0 rgb(255 255 255 / 0.03) inset;
+  --elev-2: 0 4px 16px rgb(0 0 0 / 0.4);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html:has([data-theme='dark']),
+  [data-theme='dark'] {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    /* A serif needs far less negative tracking than Inter did; at -0.021em
+       Source Serif's joins start to collide at display sizes. */
+    letter-spacing: -0.008em;
+  }
+
+  /* Inter's default figures are proportional; tabular ones keep a column of
+     durations and page numbers from shifting as they update. */
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.008em;
+  }
+
+  /* Prose that is read rather than operated: an answer, the body of a
+     document, the snippet on a source card. */
+  .font-reading {
+    font-family: var(--font-reading);
+    font-optical-sizing: auto;
+    letter-spacing: 0;
+  }
+
+  ::selection {
+    background-color: var(--highlight);
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--vermillion);
+    outline-offset: 2px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+  }
+}
+
+@layer utilities {
+  /* A hairline, not a border. Real rules in print are thinner than 1px feels. */
+  .rule-hair {
+    box-shadow: inset 0 -1px 0 var(--rule);
+  }
+
+  /* Metadata is set in mono because it is a machine-verified coordinate, not
+     prose. The distinction is the whole point of the citation model. */
+  .mono-meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+  }
+
+  .card-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* A parchment index card. The 2px accent rule is an inset shadow rather than
+     a border so it does not alter the box. */
+  .card-surface {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-rule);
+    border-radius: 2px;
+    box-shadow: inset 0 2px 0 0 var(--card-accent);
+    color: var(--card-ink);
+  }
+
+  .page-surface {
+    background-color: #ffffff;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  [data-theme='dark'] .page-surface {
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  /* A table row on the light theme is a card; on the dark theme it is a ruled
+     line. One class, because everything else about it is identical. */
+  .row-surface {
+    background-color: var(--surface);
+    box-shadow: var(--shadow-row);
+  }
+
+  .measure {
+    max-width: 680px;
+  }
+
+  .scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+  .scroll-slim::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background-color: var(--rule);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 99px;
+  }
+  .scroll-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* Opening a citation reads as the answer pointing at the page: the mark blooms
+   once and settles. Nothing bounces. */
+@keyframes bloom {
+  0% {
+    background-color: rgba(242, 201, 76, 0.75);
+  }
+  100% {
+    background-color: var(--highlight);
+  }
+}
+
+@keyframes lift {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tick {
+  from {
+    transform: scaleY(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.animate-bloom {
+  animation: bloom 900ms var(--ease-out) forwards;
+}
+.animate-lift {
+  animation: lift var(--dur) var(--ease-out) both;
+}
+.animate-tick {
+  animation: tick var(--dur) var(--ease-out) both;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Vera. The assistant is a face rather than an empty text box, because a
+   reader arriving at a blank composer has no way to know what this system
+   will and will not do. Every motion here is small and slow: a mascot that
+   jumps around competes with the answer, which is the thing worth reading.
+   All of it stops under prefers-reduced-motion.
+---------------------------------------------------------------------------- */
+
+@keyframes vera-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes vera-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes vera-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes vera-scan {
+  0%,
+  100% {
+    transform: translateX(-2px);
+  }
+  50% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes vera-blip {
+  0%,
+  100% {
+    opacity: 1;
+    r: 2.5;
+  }
+  50% {
+    opacity: 0.45;
+    r: 2;
+  }
+}
+
+@keyframes vera-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vera-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.vera-enter {
+  animation: vera-enter 620ms var(--ease-out) both;
+}
+
+.vera-bob {
+  animation: vera-bob 3.6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.vera-bob-fast {
+  animation: vera-bob 1.6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.vera-blink {
+  animation: vera-blink 5.5s ease-in-out infinite;
+  transform-origin: center 24px;
+}
+
+.vera-scan {
+  animation: vera-scan 1.2s ease-in-out infinite;
+}
+
+.vera-blip {
+  animation: vera-blip 2s ease-in-out infinite;
+}
+
+.vera-spin {
+  animation: vera-spin 1.1s linear infinite;
+  transform-origin: 28px 28px;
+}
+
+/* The notch that makes the panel a speech bubble rather than a card. */
+.vera-bubble::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 18px;
+  width: 12px;
+  height: 12px;
+  background-color: var(--surface);
+  border-left: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  transform: rotate(45deg);
+}
+
+.vera-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.vera-dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background-color: var(--vermillion);
+  animation: vera-dot 1.4s ease-in-out infinite;
+}
+
+.vera-dots i:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.vera-dots i:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vera-enter,
+  .vera-bob,
+  .vera-bob-fast,
+  .vera-blink,
+  .vera-scan,
+  .vera-blip,
+  .vera-dots i {
+    animation: none;
+  }
+
+  /* The spinner stays: it is the only signal that work is still happening. */
+  .vera-spin {
+    animation-duration: 2.4s;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The component layer.
+
+   Every page had been hand-rolling its own button, input, row and panel out of
+   utility classes, which is why no two headers lined up and no two rows were
+   the same height. These are the shared primitives; a page that needs a button
+   asks for a button.
+---------------------------------------------------------------------------- */
+
+@layer components {
+  /* --- buttons ------------------------------------------------------------ */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-DEFAULT);
+    border: 1px solid transparent;
+    font-size: var(--text-ui);
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    transition:
+      background-color var(--dur) var(--ease-out),
+      border-color var(--dur) var(--ease-out),
+      color var(--dur) var(--ease-out);
+  }
+
+  .btn:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  .btn-primary {
+    background-color: var(--vermillion);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    filter: brightness(1.08);
+  }
+
+  .btn-secondary {
+    background-color: var(--surface);
+    border-color: var(--rule);
+    color: var(--ink);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--rule-strong);
+  }
+
+  .btn-ghost {
+    color: var(--ink-muted);
+  }
+
+  .btn-ghost:hover {
+    background-color: var(--surface);
+    color: var(--ink);
+  }
+
+  .btn-sm {
+    height: 26px;
+    padding: 0 9px;
+    font-size: var(--text-small);
+  }
+
+  /* --- fields ------------------------------------------------------------- */
+
+  .field {
+    height: 32px;
+    padding: 0 10px;
+    border-radius: var(--radius-DEFAULT);
+    border: 1px solid var(--rule);
+    background-color: var(--surface);
+    color: var(--ink);
+    font-size: var(--text-ui);
+    transition: border-color var(--dur) var(--ease-out);
+  }
+
+  .field::placeholder {
+    color: var(--ink-faint);
+  }
+
+  .field:hover {
+    border-color: var(--rule-strong);
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: var(--vermillion);
+  }
+
+  .field:disabled {
+    opacity: 0.5;
+  }
+
+  /* --- panels and rows ---------------------------------------------------- */
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    background-color: var(--surface);
+    overflow: hidden;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--rule);
+    background-color: var(--paper-sunk);
+  }
+
+  /* A list row: one height, one hover, everywhere. The old library gave each
+     document an 80px card with a gap, which meant six documents filled a
+     screen that should hold twenty. */
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--rule);
+    text-align: left;
+    transition: background-color var(--dur) var(--ease-out);
+  }
+
+  .list-row:last-child {
+    border-bottom: 0;
+  }
+
+  .list-row:hover {
+    background-color: var(--surface-raised);
+  }
+
+  .list-row[data-selected='true'] {
+    background-color: var(--surface-raised);
+  }
+
+  /* --- chips -------------------------------------------------------------- */
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .chip-neutral {
+    background-color: var(--paper-sunk);
+    color: var(--ink-faint);
+  }
+
+  /* --- section headings --------------------------------------------------- */
+
+  .section-title {
+    font-size: var(--text-title);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-size: var(--text-page);
+    font-weight: 600;
+    letter-spacing: -0.008em;
+    color: var(--ink);
+  }
+
+  /* --- loading ------------------------------------------------------------ */
+
+  /* A skeleton keeps the layout still while data arrives. The word "loading…"
+     moves everything twice: once when it appears, once when it is replaced. */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--paper-sunk) 25%,
+      var(--surface-raised) 37%,
+      var(--paper-sunk) 63%
+    );
+    background-size: 400% 100%;
+    animation: skeleton 1.4s ease infinite;
+    border-radius: var(--radius-sm);
+  }
+}
+
+@keyframes skeleton {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* A visible focus ring on every interactive element, not just the ones that
+   remembered to ask for one. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* Chrome paints autofilled fields with its own blue, which overrides the
+   background but not the text colour — on the dark theme that is light text on
+   pale blue. The colour cannot be set directly, so the background is painted by
+   an inset shadow the size of the field and the caret and text are set to
+   match the palette. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  box-shadow: 0 0 0 1000px var(--surface) inset;
+  caret-color: var(--ink);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* A citation marker. It was a bare superscript numeral, which to a reader who
+   has not been told what it means looks like a typo rather than a link to the
+   page the sentence came from. It is now visibly a control: tinted, boxed and
+   pressable, and it lights up with the source card it belongs to. */
+.citation-marker {
+  position: relative;
+  top: -0.42em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  margin-left: 2px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--vermillion) 14%, transparent);
+  color: var(--vermillion);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  vertical-align: baseline;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+}
+
+/* Hovering a marker floods it with the same yellow the passage it points at is
+   marked in, rather than with the accent. Before, pressing a vermillion
+   numeral lit a yellow passage and the reader had to take on faith that the
+   two were related; now the marker, the claim it sits in and the marked span
+   in the source are one colour, and the relationship is visible instead of
+   asserted. The vermillion stays as the numeral's own ink, so a citation is
+   still identifiable at rest. */
+.citation-marker:hover,
+.citation-marker:focus-visible,
+.citation-marker.is-active {
+  background-color: var(--highlight);
+  color: var(--vermillion);
+  box-shadow: inset 0 0 0 1px var(--vermillion);
+}
+
+/* The cited span, marked in the source. The rule down its left edge is what
+   makes it read as a passage someone marked rather than as a run of coloured
+   text — the same gesture as a pencil line in a margin. */
+.cited-span {
+  border-radius: 2px;
+  padding: 1px 2px;
+  background-color: var(--card-highlight);
+  box-shadow: -3px 0 0 0 var(--card-accent);
+  color: var(--card-ink);
+}
+
+/* ---------------------------------------------------------------------------
+   The thread, as a chat.
+
+   A conversation reads as a conversation: turns alternate sides, your own
+   question carries the accent, and the newest turn is at the bottom where you
+   are already looking. The one departure from the messenger idiom is width —
+   an answer here is prose with citations in it, not a line of talk, so Vera's
+   bubble is allowed to be wide enough to read at a comfortable measure while
+   yours stays short.
+   --------------------------------------------------------------------------- */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.chat-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chat-row.is-me {
+  flex-direction: row-reverse;
+}
+
+/* Consecutive turns from the same speaker sit closer together than a change of
+   speaker does, so the eye groups them without needing a rule between. */
+.chat-row + .chat-row.is-same {
+  margin-top: -8px;
+}
+
+.chat-avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 2px;
+  border-radius: 999px;
+  background-color: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  color: var(--vermillion);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+}
+
+.chat-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-row.is-me .chat-stack {
+  align-items: flex-end;
+}
+
+.bubble {
+  position: relative;
+  max-width: 100%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  /* break-word, not anywhere. `anywhere` is taken into account when the
+     browser computes a box's min-content width, so a bubble in a flex column
+     could shrink to the width of one character — which is how "hi" came to be
+     set as "h" over "i". `break-word` still breaks a URL or a long token that
+     genuinely cannot fit, but leaves the intrinsic width alone, so the bubble
+     sizes to its words. */
+  /* max-content, not fit-content. `fit-content` resolves against the space the
+     containing block offers, and inside a column flex track that had collapsed
+     to the longest word — so "what's up?" was set as two lines in a bubble
+     barely wider than one of them. `max-content` sizes to the text and the
+     max-width below is what actually decides when it wraps, which is the
+     behaviour every messenger has. */
+  width: max-content;
+  overflow-wrap: break-word;
+}
+
+/* The squared corner is the tail: it points at the speaker's own side, which
+   is the whole reason a bubble reads as coming from someone. */
+.bubble-me {
+  border-bottom-right-radius: 5px;
+  background-color: var(--bubble-me);
+  color: var(--bubble-me-ink);
+  font-weight: 450;
+}
+
+.bubble-vera {
+  border-bottom-left-radius: 5px;
+  background-color: var(--bubble-vera);
+  color: var(--bubble-vera-ink);
+  border: 1px solid var(--bubble-vera-rule);
+  box-shadow: var(--shadow-row);
+}
+
+/* The cap belongs on the stack, not on the bubble.
+   `max-width: 78%` on a bubble is 78% of .chat-stack — and .chat-stack is
+   shrink-to-fit, so its width came from the bubble it was busy constraining.
+   That circular pair resolves at whatever the minimum content width happens
+   to be, which is why "hi" was still being set one letter per line after both
+   the overflow-wrap and the max-content fixes. .chat-stack is a flex item of
+   .chat-row, which is the full width of the thread, so the percentage has
+   something real to measure against there. */
+.chat-row.is-me .chat-stack {
+  max-width: min(78%, 460px);
+}
+
+.chat-row:not(.is-me) .chat-stack {
+  max-width: min(92%, 640px);
+}
+
+/* The timestamp slot. It carries what this system actually has to report about
+   a turn — the mode it ran in, how many passes it took, how long it stood
+   there — which matters more here than the clock time. */
+.chat-meta {
+  padding: 0 4px;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.chat-row.is-me .chat-meta {
+  text-align: right;
+}
+
+/* Source chips ride under Vera's bubble rather than in a column beside it, so
+   a numeral in an old answer still has its legend attached when the panel that
+   belonged to it has scrolled away. */
+.chat-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 1px 2px 0;
+}
+
+.chat-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 3px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background-color: var(--surface);
+  transition:
+    border-color var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out);
+}
+
+.chat-source:hover,
+.chat-source.is-active {
+  border-color: var(--vermillion);
+  background-color: color-mix(in srgb, var(--vermillion) 7%, var(--surface));
+}
+
+.chat-source .n {
+  color: var(--vermillion);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.chat-source .who {
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-source .where {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* Vera is typing. Three dots is the one gesture everyone already reads as
+   "hold on", and it sits in a bubble so the wait occupies the place the answer
+   will occupy rather than shifting the thread when it arrives. */
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 1px;
+}
+
+.typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--ink-faint);
+  animation: typing 1.25s var(--ease-out) infinite;
+}
+
+.typing span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.typing span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing span {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
+/* An abstention is not a failure, but it is not an answer either, and the
+   thread should not let it pass as one. */
+.bubble-vera.is-abstained {
+  border-color: color-mix(in srgb, var(--ochre) 45%, var(--rule));
+  background-color: color-mix(in srgb, var(--ochre) 8%, var(--bubble-vera));
+}
+
+@media (max-width: 640px) {
+  .chat-row.is-me .chat-stack,
+  .chat-row:not(.is-me) .chat-stack {
+    max-width: 100%;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The account control, and the menu behind it.
+   --------------------------------------------------------------------------- */
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background-color: var(--surface);
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+  transition:
+    border-color var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+}
+
+.avatar:hover,
+.avatar.is-open {
+  border-color: var(--vermillion);
+  color: var(--vermillion);
+}
+
+.avatar:focus-visible {
+  outline: 2px solid var(--vermillion);
+  outline-offset: 2px;
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 60;
+  min-width: 208px;
+  padding: 4px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-raised);
+  /* A menu floats over the page, so it carries a real shadow rather than the
+     hairline every resting block here uses. */
+  box-shadow:
+    0 1px 2px rgb(20 16 12 / 0.06),
+    0 8px 24px -6px rgb(20 16 12 / 0.18);
+}
+
+[data-theme='dark'] .menu {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 10px 28px -6px rgb(0 0 0 / 0.55);
+}
+
+.menu-head {
+  padding: 8px 10px 9px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 4px;
+}
+
+
+.menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  transition: background-color var(--dur) var(--ease-out);
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background-color: var(--paper-sunk);
+  outline: none;
+}
+
+.menu-item.is-danger:hover,
+.menu-item.is-danger:focus-visible {
+  color: var(--vermillion);
+}
+
+.menu-rule {
+  height: 1px;
+  margin: 4px 0;
+  background-color: var(--rule);
+}
+
+/* A bare icon control: the theme toggle, and anything else that is a glyph
+   rather than a word. Same footprint as the avatar beside it. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  color: var(--ink-faint);
+  transition:
+    background-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+}
+
+.icon-btn:hover {
+  background-color: var(--paper-sunk);
+  color: var(--ink);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--vermillion);
+  outline-offset: 2px;
+}
+
+/* A run of citation markers is one object. It must not break across lines —
+   a numeral stranded at the start of the next line, ahead of the full stop it
+   belongs to, reads as a typo rather than as a reference. */
+.marker-run {
+  display: inline;
+  white-space: nowrap;
+}
+
+.marker-run .citation-marker + .citation-marker {
+  margin-left: 1px;
+}
+
+/* A link in the top bar. It gets a real hit area rather than sitting as bare
+   text between two buttons, and it reads at the same weight as the controls
+   beside it instead of receding to the faintest ink on the page. */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-muted);
+  font-size: 13px;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+}
+
+.nav-link:hover {
+  background-color: var(--paper-sunk);
+  color: var(--ink);
+}
+
+.nav-link:focus-visible {
+  outline: 2px solid var(--vermillion);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   The front page specimen, performing.
+   --------------------------------------------------------------------------- */
+
+.spec-in {
+  animation: spec-in 420ms var(--ease-out) both;
+}
+
+@keyframes spec-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Each word lands rather than appearing, so the answer reads as being written
+   instead of as text being pasted in a chunk at a time. */
+.bubble-vera > span {
+  animation: spec-word 220ms var(--ease-out) both;
+}
+
+@keyframes spec-word {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* A marker arrives with a little more ceremony than a word: it is the thing
+   the whole panel exists to demonstrate. */
+.spec-marker {
+  animation: spec-marker 360ms var(--ease-out) both;
+}
+
+@keyframes spec-marker {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.spec-caret {
+  display: inline-block;
+  width: 2px;
+  height: 0.95em;
+  margin-left: 2px;
+  background-color: var(--vermillion);
+  vertical-align: baseline;
+  animation: spec-caret 900ms steps(2, start) infinite;
+}
+
+@keyframes spec-caret {
+  to {
+    opacity: 0;
+  }
+}
+
+.spec-chip {
+  animation: spec-in 380ms var(--ease-out) both;
+}
+
+/* When a marker lights, its source card lights with it. This is the sentence
+   the panel is making: this numeral means that document, at that coordinate. */
+.chat-source.is-active {
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spec-in,
+  .spec-chip,
+  .spec-marker,
+  .bubble-vera > span {
+    animation: none;
+  }
+  .spec-caret {
+    display: none;
+  }
+}
+
+/* A modal. It sits over the page it belongs to rather than replacing it, so
+   the work it reports on stays visibly in context behind it. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: rgb(20 16 12 / 0.42);
+  backdrop-filter: blur(2px);
+}
+
+[data-theme='dark'] .modal-backdrop {
+  background-color: rgb(0 0 0 / 0.62);
+}
+
+.modal {
+  display: flex;
+  width: 100%;
+  max-width: 460px;
+  max-height: 80vh;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--surface-raised);
+  box-shadow:
+    0 2px 6px rgb(20 16 12 / 0.1),
+    0 24px 60px -12px rgb(20 16 12 / 0.35);
+}
+
+/* ---------------------------------------------------------------------------
+   The landing ground.
+
+   A flat field of one colour reads as unfinished at this size, but a gradient
+   hero is the most worn look in software. So the ground is built from the
+   things this product is already made of: a warm cast where the answer sits,
+   a cooler one opposite it, and a fine grain over both, because every surface
+   in here is meant to be paper and paper is never perfectly even.
+
+   All of it is painted on the element itself rather than on a fixed pseudo
+   element, so the sections below — which carry their own grounds — cover it
+   cleanly and the page keeps its banding.
+   --------------------------------------------------------------------------- */
+
+.ground {
+  background-color: var(--paper);
+  background-image:
+    /* The grain. Two percent of anything is invisible; this sits just above
+       that, enough to break the flatness without becoming a texture. */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='0.035'/%3E%3C/svg%3E"),
+    /* Warm, behind the answer: the lamp the reading room is lit by. */
+    radial-gradient(
+      52rem 38rem at 76% 26%,
+      color-mix(in srgb, var(--vermillion) 10%, transparent),
+      transparent 68%
+    ),
+    /* Cool, opposite it, so the warm side reads as a direction rather than a
+       stain in the middle of the page. */
+    radial-gradient(
+      46rem 34rem at 6% 82%,
+      color-mix(in srgb, var(--moss) 8%, transparent),
+      transparent 70%
+    );
+  background-repeat: repeat, no-repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed;
+}
+
+/* The light theme's ground is already a warm paper, so the same tints land
+   far heavier on it. They come down rather than changing hue — the direction
+   of the light should not flip with the lights. */
+:root:not([data-theme='dark']) .ground {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='0.05'/%3E%3C/svg%3E"),
+    radial-gradient(
+      52rem 38rem at 76% 26%,
+      color-mix(in srgb, var(--vermillion) 5%, transparent),
+      transparent 68%
+    ),
+    radial-gradient(
+      46rem 34rem at 6% 82%,
+      color-mix(in srgb, var(--moss) 4%, transparent),
+      transparent 70%
+    );
+}
+
+/* The specimen is the lit object on that ground, so it stops being a plain
+   bordered box and picks up a little depth of its own. */
+.ground .row-surface {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 18px 48px -24px rgb(0 0 0 / 0.45);
+}
+
+/* Fixed attachment costs a repaint on every scroll frame for very little on a
+   phone, where the gradients are already larger than the screen. */
+@media (max-width: 640px) {
+  .ground {
+    background-attachment: scroll, scroll, scroll;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The three steps, as a numbered sequence of cards.
+   --------------------------------------------------------------------------- */
+
+.step-row {
+  counter-reset: step;
+}
+
+.step-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 20px 20px 18px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+  /* Transformed from the centre so the card grows into its own gutters rather
+     than shouldering its neighbours. */
+  transform-origin: center;
+  transition:
+    transform 220ms var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    box-shadow 220ms var(--ease-out);
+}
+
+.step-card:hover {
+  /* Small on purpose. A card that jumps is a card that moves the text you are
+     reading; this is enough to say "this one" and no more. */
+  transform: scale(1.025);
+  border-color: var(--rule-strong);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.06), 0 16px 36px -18px rgb(0 0 0 / 0.5);
+  z-index: 1;
+}
+
+/* The hovered card lifts above its neighbours, and above the connector rule
+   running between them. */
+.step-card:hover .step-n {
+  background-color: color-mix(in srgb, var(--vermillion) 22%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step-card {
+    transition: border-color var(--dur) var(--ease-out);
+  }
+  .step-card:hover {
+    transform: none;
+  }
+}
+
+.step-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--vermillion) 14%, transparent);
+  color: var(--vermillion);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The rule between one card and the next. It is the only thing saying these
+   are steps rather than three unrelated features, so it runs from the edge of
+   one card to the edge of the next and stops at the last. */
+.step-card::after {
+  content: '';
+  position: absolute;
+  top: 35px;
+  right: -20px;
+  width: 20px;
+  height: 1px;
+  background-color: var(--rule);
+}
+
+.step-card:last-child::after {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  /* Stacked, the connector turns to run down the column instead of across. */
+  .step-card::after {
+    top: auto;
+    right: auto;
+    bottom: -20px;
+    left: 35px;
+    width: 1px;
+    height: 20px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Sources under an answer, grouped by the document they point into.
+   --------------------------------------------------------------------------- */
+
+.chat-sources {
+  flex-direction: column;
+  gap: 7px;
+}
+
+.source-group {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 10px;
+}
+
+/* The name is said once per document. It truncates from the end rather than
+   the middle: these filenames share long prefixes, so the tail is the half
+   that tells two of them apart. */
+.source-file {
+  max-width: min(100%, 340px);
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.source-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background-color: var(--surface);
+  transition:
+    border-color var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out);
+}
+
+.source-mark:hover,
+.source-mark.is-active {
+  border-color: var(--vermillion);
+  background-color: color-mix(in srgb, var(--vermillion) 9%, var(--surface));
+}
+
+.source-mark .n {
+  color: var(--vermillion);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.source-mark .where {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.source-mark:focus-visible {
+  outline: 2px solid var(--vermillion);
+  outline-offset: 1px;
+}
+
+/* The landing specimen cites two different files, so its chips sit in a row
+   rather than being grouped per document the way a real answer's are. */
+.spec-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 1px 2px 0;
+}

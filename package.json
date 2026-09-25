@@ -1,0 +1,22 @@
+{
+  "name": "trace",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @trace/api db:generate",
+    "db:migrate": "pnpm --filter @trace/api db:migrate",
+    "retrieve": "pnpm --filter @trace/api retrieve",
+    "seed": "pnpm --filter @trace/api seed"
+  },
+  "devDependencies": {
+    "turbo": "2.10.13",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,23 @@
+# torch and torchvision are installed separately from the PyTorch CPU index in
+# the Dockerfile. Installing them from PyPI would pull the CUDA build, roughly
+# 2.5 GB of wheels this project can never use.
+
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic==2.13.5
+python-multipart==0.0.32
+
+# Extraction
+pymupdf==1.28.2
+pillow==12.3.0
+rapidocr-onnxruntime==1.4.4
+faster-whisper==1.2.1
+
+# Embeddings
+fastembed==0.8.0
+open-clip-torch==3.3.0
+
+# Captions and the exotic-format fallback path
+google-genai==2.23.0
+
+numpy==2.2.6
