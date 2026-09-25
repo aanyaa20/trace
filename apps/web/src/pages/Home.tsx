@@ -67,6 +67,93 @@ const READS = [
   },
 ];
 
+/** Where the glints sit, in the backdrop's 1440×900 frame: on the diamond's
+ *  edges and corners, the way light catches a rule rather than floating free. */
+const GLINTS = [
+  { x: 1004, y: 132, r: 2.2, delay: '0s' },
+  { x: 1248, y: 376, r: 1.6, delay: '1.4s' },
+  { x: 876, y: 604, r: 1.8, delay: '2.6s' },
+  { x: 1362, y: 690, r: 1.4, delay: '0.8s' },
+  { x: 742, y: 214, r: 1.2, delay: '3.3s' },
+  { x: 1120, y: 812, r: 1.5, delay: '2s' },
+  // The left side: on the arcs, and on the small diamond below the button.
+  { x: 240, y: 164, r: 1.4, delay: '1.1s' },
+  { x: 58, y: 455, r: 1.2, delay: '3s' },
+  { x: 250, y: 740, r: 1.5, delay: '2.2s' },
+];
+
+/**
+ * The hero's backdrop. A spotlight rising from the foot of the stage over
+ * faint curtain folds, a pair of hairline diamonds framing the specimen with
+ * light caught on their edges, and arcs off the top-left corner. Decorative
+ * only: it sits behind the section and takes no pointer events.
+ */
+function HeroBackdrop(): React.ReactElement {
+  return (
+    <div className="hero-backdrop" aria-hidden>
+      <div className="hero-curtain" />
+      <div className="hero-spot" />
+      <svg
+        className="hero-lines"
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
+        fill="none"
+      >
+        <defs>
+          <linearGradient id="hero-gold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="var(--hero-line)" stopOpacity="0" />
+            <stop offset="0.45" stopColor="var(--hero-line)" stopOpacity="0.9" />
+            <stop offset="0.6" stopColor="var(--hero-glint)" stopOpacity="1" />
+            <stop offset="1" stopColor="var(--hero-line)" stopOpacity="0" />
+          </linearGradient>
+          <radialGradient id="hero-glint-fill">
+            <stop offset="0" stopColor="var(--hero-glint)" stopOpacity="1" />
+            <stop offset="1" stopColor="var(--hero-glint)" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {/* Arcs off the top-left corner. */}
+        <g stroke="var(--hero-arc)" strokeWidth="1">
+          {[220, 300, 380, 460, 540].map((r) => (
+            <circle key={r} cx="-60" cy="-40" r={r} />
+          ))}
+        </g>
+
+        {/* Two diamonds, the smaller nested low and to the left of the larger. */}
+        <g stroke="url(#hero-gold)" strokeWidth="1.2">
+          <path d="M1060 60 L1400 400 L1060 740 L720 400 Z" />
+          <path d="M880 470 L1090 680 L880 890 L670 680 Z" />
+          <path d="M1230 560 L1440 770 L1230 980 L1020 770 Z" />
+        </g>
+
+        {/* A small echo of the diamonds on the left, below the button and
+            clear of the text, so the right side is not carrying the frame
+            alone. */}
+        <g stroke="url(#hero-gold)" strokeWidth="1" opacity="0.7">
+          <path d="M160 740 L250 830 L160 920 L70 830 Z" />
+          <path d="M250 650 L340 740 L250 830 L160 740 Z" />
+        </g>
+
+        {/* Light caught along an edge: a short, brighter run of the rule. */}
+        <path
+          d="M1180 180 L1290 290"
+          stroke="var(--hero-glint)"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          opacity="0.8"
+        />
+
+        {GLINTS.map((g) => (
+          <g key={`${g.x}-${g.y}`} className="hero-glint" style={{ animationDelay: g.delay }}>
+            <circle cx={g.x} cy={g.y} r={g.r * 7} fill="url(#hero-glint-fill)" opacity="0.35" />
+            <circle cx={g.x} cy={g.y} r={g.r} fill="var(--hero-glint)" />
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 export function Home(): React.ReactElement {
   const { phase } = useSession();
   const signedIn = phase === 'signed-in';
@@ -144,7 +231,9 @@ export function Home(): React.ReactElement {
             a skim before either has been read. min-height rather than height:
             on a short window the content still grows and scrolls instead of
             being clipped by its own frame. */}
-        <section className="mx-auto flex min-h-[calc(100svh-var(--bar))] max-w-[1100px] flex-col justify-center gap-10 px-6 py-12 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:items-center lg:gap-12">
+        <div className="hero-stage">
+        <HeroBackdrop />
+        <section className="relative mx-auto flex min-h-[calc(100svh-var(--bar))] max-w-[1100px] flex-col justify-center gap-10 px-6 py-12 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:items-center lg:gap-12">
           <div className="min-w-0">
             <h1
               className="max-w-[16ch] font-display text-[clamp(2rem,5.2vw,3.3rem)] font-semibold leading-[1.06]"
@@ -178,6 +267,7 @@ export function Home(): React.ReactElement {
             <Specimen />
           </div>
         </section>
+        </div>
 
         {/* What it reads comes before what it does with it: a visitor's first
             question is whether their own pile of material is the kind this

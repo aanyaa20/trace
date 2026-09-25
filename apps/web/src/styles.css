@@ -115,11 +115,18 @@
   --bar: 61px;
   --dur: 200ms;
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* In-page links (the landing bar's Features, How it works) land with the
+     section's own top edge just under the sticky bar instead of beneath it,
+     and glide there rather than jumping. */
+  scroll-padding-top: var(--bar);
+  scroll-behavior: smooth;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur: 0ms;
+    scroll-behavior: auto;
   }
 }
 
@@ -1436,6 +1443,121 @@ input:-webkit-autofill:focus {
       color-mix(in srgb, var(--moss) 4%, transparent),
       transparent 70%
     );
+}
+
+/* ---------------------------------------------------------------------------
+   The hero stage.
+
+   The first screen goes darker than the rest of the page and is lit like a
+   stage: a warm spot rising from the floor over faint curtain folds, hairline
+   gold diamonds framing the specimen with light caught on their edges, and
+   arcs off the corner opposite. The sections below keep the ordinary ground.
+   --------------------------------------------------------------------------- */
+
+.hero-stage {
+  --hero-base: #070808;
+  --hero-spot: #e8674a;
+  --hero-line: #c9a15a;
+  --hero-glint: #fff1cf;
+  --hero-arc: rgb(255 255 255 / 0.075);
+  --hero-fold: rgb(255 255 255 / 0.018);
+
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: var(--hero-base);
+}
+
+:root:not([data-theme='dark']) .hero-stage {
+  --hero-base: #f4ede0;
+  --hero-spot: #e8674a;
+  --hero-line: #a57a35;
+  --hero-glint: #8a5a1c;
+  --hero-arc: rgb(31 27 22 / 0.07);
+  --hero-fold: rgb(31 27 22 / 0.03);
+}
+
+.hero-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Vertical folds, strongest near the top and gone before the spot's floor. */
+.hero-curtain {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 38px,
+    var(--hero-fold) 38px 40px,
+    transparent 40px 86px,
+    var(--hero-fold) 86px 87px
+  );
+  mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.5) 45%, transparent 85%);
+}
+
+/* The spot: a wide, low glow at the foot of the stage, with a tight bright
+   floor-line at its base. */
+.hero-spot {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      60% 55% at 50% 108%,
+      color-mix(in srgb, var(--hero-spot) 26%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      28% 10% at 50% 100%,
+      color-mix(in srgb, var(--hero-spot) 42%, transparent),
+      transparent 100%
+    ),
+    radial-gradient(
+      40rem 30rem at 78% 30%,
+      color-mix(in srgb, var(--hero-spot) 9%, transparent),
+      transparent 70%
+    );
+}
+
+:root:not([data-theme='dark']) .hero-spot {
+  opacity: 0.45;
+}
+
+.hero-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.4;
+}
+
+/* Below the two-column layout the diamonds would sit behind the text. */
+@media (max-width: 1023px) {
+  .hero-lines {
+    opacity: 0.25;
+  }
+}
+
+.hero-glint {
+  animation: hero-twinkle 4.8s ease-in-out infinite;
+}
+
+@keyframes hero-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-glint {
+    animation: none;
+  }
 }
 
 /* The specimen is the lit object on that ground, so it stops being a plain
