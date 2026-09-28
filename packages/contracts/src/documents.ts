@@ -25,6 +25,9 @@ export const documentSchema = z.object({
    *  groups the corpus by where each document came from, and "who put this
    *  here" is a different question from "what is it". */
   connectorId: z.string().uuid().nullable(),
+  /** The mail this document arrived attached to. The library shows a mail
+   *  and its attachments as one item; each is still indexed on its own. */
+  parentId: z.string().uuid().nullable().default(null),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

@@ -63,7 +63,7 @@ export async function visualCheck(state: AgentState, ctx: AgentContext): Promise
       query: question,
       regionTypes: VISUAL_REGIONS,
       limit: 8,
-      ...(state.documentId ? { documentId: state.documentId } : {}),
+      ...(state.documentId ? { documentIds: [state.documentId, ...state.attachedIds] } : {}),
     });
     const fresh = regional.chunks.filter((chunk) => !evidenceIds.has(chunk.chunkId));
     const pool = [...state.candidates, ...fresh].filter((chunk) => !evidenceIds.has(chunk.chunkId));

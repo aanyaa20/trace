@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Citation, Document, ResolvedCitation } from '@trace/contracts';
 import { api } from '../lib/api.js';
 import { HighlightLayer, regionRects } from './HighlightLayer.js';
+import { FileIcon } from './FileIcon.js';
+import { displayName } from '../lib/mail.js';
 
 function stamp(seconds: number): string {
   const total = Math.floor(seconds);
@@ -207,10 +209,15 @@ export function DocumentReader({
   document: doc,
   citation,
   onClose,
+  attachments = [],
+  onOpenAttachment,
 }: {
   document: Document | null;
   citation: Citation | null;
   onClose: () => void;
+  /** What arrived attached to this document, when it is a mail. */
+  attachments?: Document[];
+  onOpenAttachment?: (attachment: Document) => void;
 }): React.ReactElement {
   const [fit, setFit] = useState<Fit>('width');
   const [zoom, setZoom] = useState(1);
@@ -351,7 +358,7 @@ export function DocumentReader({
   return (
     <div className="flex h-full min-w-0 flex-col bg-paper">
       <Toolbar
-        label={doc.filename}
+        label={displayName(doc)}
         meta={meta}
         fit={fit}
         zoom={zoom}
@@ -361,6 +368,25 @@ export function DocumentReader({
         scalable={pages.length > 0 || doc.modality === 'image' || doc.modality === 'text'}
         embedded={embedded}
       />
+
+      {/* A mail is read with its attachments, the way a mail client shows
+          them: under the message, one press from opening. */}
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-rule px-4 py-2">
+          <span className="eyebrow">attachments</span>
+          {attachments.map((attachment) => (
+            <button
+              key={attachment.id}
+              type="button"
+              onClick={() => onOpenAttachment?.(attachment)}
+              className="inline-flex items-center gap-2 rounded-[6px] border border-rule px-2 py-1 text-[12px] text-ink-muted hover:text-ink"
+            >
+              <FileIcon modality={attachment.modality} size={20} />
+              {attachment.filename}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         {/* The page rail. A cited page carries a 2px vermillion tick, which is

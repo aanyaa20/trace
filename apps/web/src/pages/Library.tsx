@@ -4,6 +4,7 @@ import type { Connector, Document, IngestionEvent, IngestionStage, Modality } fr
 import { api } from '../lib/api.js';
 import { formatBytes, formatDate, formatDuration } from '../lib/format.js';
 import { FileIcon, modalityLabel } from '../components/FileIcon.js';
+import { attachmentsByParent, displayName, isMail, mailParts, topLevel } from '../lib/mail.js';
 import { IngestionModal, type Accepted } from '../components/IngestionModal.js';
 import { Dot, EmptyState, PageHeader, SkeletonRows } from '../components/ui.js';
 import { useKb } from './KbLayout.js';
@@ -307,9 +308,130 @@ export function Library(): React.ReactElement {
     ? (library.documents.find((document) => document.id === inspecting) ?? null)
     : null;
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  // A mail and its attachments are one item: the attachments are listed under
+  // the mail rather than beside it. An attachment a filter matches on its own
+  // ("PDFs") still appears, and says which mail it came with.
+  const attachments = useMemo(() => attachmentsByParent(library.documents), [library.documents]);
+  const byId = useMemo(
+    () => new Map(library.documents.map((document) => [document.id, document])),
+    [library.documents],
+  );
+  const items = useMemo(() => topLevel(filtered), [filtered]);
+
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
   const current = Math.min(page, pageCount);
-  const rows = filtered.slice((current - 1) * pageSize, current * pageSize);
+  const rows = items.slice((current - 1) * pageSize, current * pageSize);
+
+  const renderRow = (document: Document, nested: boolean): React.ReactElement => {
+              const readable = document.status === 'indexed' || document.chunkCount > 0;
+              const mail = isMail(document);
+              const attached = attachments.get(document.id) ?? [];
+              const parent = document.parentId ? byId.get(document.parentId) : undefined;
+              const note = mail
+                ? [
+                    mailParts(document).sender ? `from ${mailParts(document).sender}` : null,
+                    attached.length > 0
+                      ? `${attached.length} attachment${attached.length === 1 ? '' : 's'}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                : !nested && parent
+                  ? `${detail(document)} · attached to “${displayName(parent)}”`
+                  : detail(document);
+              return (
+                <div key={document.id} className={`list-row group${nested ? ' is-attachment' : ''}`}>
+                  <button
+                    type="button"
+                    disabled={!readable}
+                    onClick={() => void navigate(`/app/kb/${kb.id}/ask?doc=${document.id}`)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
+                  >
+                    {nested && (
+                      <span aria-hidden className="attachment-clip">
+                        ⌙
+                      </span>
+                    )}
+                    <FileIcon modality={document.modality} size={nested ? 24 : 28} mail={mail} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-medium text-ink">
+                        {displayName(document)}
+                      </span>
+                      <span className="mono-meta">{note}</span>
+                    </span>
+                  </button>
+
+                  <span className="mono-meta w-20 shrink-0 text-right">
+                    {formatBytes(document.sizeBytes)}
+                  </span>
+                  <span className="mono-meta w-16 shrink-0 text-right">
+                    {mail ? 'MAIL' : modalityLabel(document.modality)}
+                  </span>
+                  <span className="mono-meta w-28 shrink-0 text-right">
+                    {formatDate(document.createdAt)}
+                  </span>
+                  <span className="flex w-32 shrink-0 justify-end">
+                    <StatusPill document={document} live={library.progress[document.id]} />
+                  </span>
+
+                  <span className="flex w-[118px] shrink-0 items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setInspecting(document.id)}
+                      className="text-[12px] text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 hover:text-ink"
+                      aria-label={`inspect ${document.filename}`}
+                    >
+                      inspect
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Two presses, because this cannot be undone: the
+                        // document, its chunks and its vectors all go.
+                        if (confirming !== document.id) {
+                          setConfirming(document.id);
+                          return;
+                        }
+                        setConfirming(null);
+                        void api
+                          .deleteDocument(document.id)
+                          .then(() => {
+                            if (inspecting === document.id) setInspecting(null);
+                            return library.refresh();
+                          })
+                          .catch((cause: unknown) =>
+                            setError(
+                              cause instanceof Error
+                                ? `could not remove ${document.filename}: ${cause.message}`
+                                : String(cause),
+                            ),
+                          );
+                      }}
+                      onBlur={() => setConfirming((id) => (id === document.id ? null : id))}
+                      className={`text-[12px] transition-opacity hover:text-ink ${
+                        confirming === document.id
+                          ? 'opacity-100'
+                          : 'text-ink-faint opacity-0 group-hover:opacity-100'
+                      }`}
+                      style={
+                        confirming === document.id ? { color: 'var(--vermillion)' } : undefined
+                      }
+                      aria-label={
+                        confirming === document.id
+                          ? `confirm removing ${document.filename}`
+                          : `remove ${document.filename}`
+                      }
+                    >
+                      {confirming === document.id
+                        ? attached.length > 0
+                          ? `remove with ${attached.length} attachment${attached.length === 1 ? '' : 's'}?`
+                          : 'remove?'
+                        : 'remove'}
+                    </button>
+                  </span>
+                </div>
+              );
+  };
 
   const select = (key: string): void => {
     if (key === 'all') params.delete('source');
@@ -367,7 +489,7 @@ export function Library(): React.ReactElement {
       <div className="shrink-0 px-8 pt-5">
         <PageHeader
           title={selected.title}
-          meta={`${selected.documents.length} document${selected.documents.length === 1 ? '' : 's'} · ${selected.note}`}
+          meta={`${topLevel(selected.documents).length} item${topLevel(selected.documents).length === 1 ? '' : 's'} · ${selected.note}`}
           actions={
             <>
               <input
@@ -416,7 +538,7 @@ export function Library(): React.ReactElement {
               >
                 {source.key.startsWith('mailbox:') && <Dot tone="var(--moss)" />}
                 <span className="max-w-[210px] truncate">{source.title}</span>
-                <span className="mono-meta">{source.documents.length}</span>
+                <span className="mono-meta">{topLevel(source.documents).length}</span>
               </button>
             );
           })}
@@ -555,92 +677,14 @@ export function Library(): React.ReactElement {
               <span className="w-[118px]" />
             </div>
 
-            {rows.map((document) => {
-              const readable = document.status === 'indexed' || document.chunkCount > 0;
-              return (
-                <div key={document.id} className="list-row group">
-                  <button
-                    type="button"
-                    disabled={!readable}
-                    onClick={() => void navigate(`/app/kb/${kb.id}/ask?doc=${document.id}`)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
-                  >
-                    <FileIcon modality={document.modality} size={28} />
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-medium text-ink">
-                        {document.filename}
-                      </span>
-                      <span className="mono-meta">{detail(document)}</span>
-                    </span>
-                  </button>
-
-                  <span className="mono-meta w-20 shrink-0 text-right">
-                    {formatBytes(document.sizeBytes)}
-                  </span>
-                  <span className="mono-meta w-16 shrink-0 text-right">
-                    {modalityLabel(document.modality)}
-                  </span>
-                  <span className="mono-meta w-28 shrink-0 text-right">
-                    {formatDate(document.createdAt)}
-                  </span>
-                  <span className="flex w-32 shrink-0 justify-end">
-                    <StatusPill document={document} live={library.progress[document.id]} />
-                  </span>
-
-                  <span className="flex w-[118px] shrink-0 items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setInspecting(document.id)}
-                      className="text-[12px] text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 hover:text-ink"
-                      aria-label={`inspect ${document.filename}`}
-                    >
-                      inspect
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Two presses, because this cannot be undone: the
-                        // document, its chunks and its vectors all go.
-                        if (confirming !== document.id) {
-                          setConfirming(document.id);
-                          return;
-                        }
-                        setConfirming(null);
-                        void api
-                          .deleteDocument(document.id)
-                          .then(() => {
-                            if (inspecting === document.id) setInspecting(null);
-                            return library.refresh();
-                          })
-                          .catch((cause: unknown) =>
-                            setError(
-                              cause instanceof Error
-                                ? `could not remove ${document.filename}: ${cause.message}`
-                                : String(cause),
-                            ),
-                          );
-                      }}
-                      onBlur={() => setConfirming((id) => (id === document.id ? null : id))}
-                      className={`text-[12px] transition-opacity hover:text-ink ${
-                        confirming === document.id
-                          ? 'opacity-100'
-                          : 'text-ink-faint opacity-0 group-hover:opacity-100'
-                      }`}
-                      style={
-                        confirming === document.id ? { color: 'var(--vermillion)' } : undefined
-                      }
-                      aria-label={
-                        confirming === document.id
-                          ? `confirm removing ${document.filename}`
-                          : `remove ${document.filename}`
-                      }
-                    >
-                      {confirming === document.id ? 'remove?' : 'remove'}
-                    </button>
-                  </span>
-                </div>
-              );
-            })}
+            {rows.map((document) => (
+              <div key={document.id}>
+                {renderRow(document, false)}
+                {(attachments.get(document.id) ?? []).map((child) => (
+                  <div key={child.id}>{renderRow(child, true)}</div>
+                ))}
+              </div>
+            ))}
             </div>
 
             {inspected && (
@@ -689,8 +733,8 @@ export function Library(): React.ReactElement {
           </label>
 
           <span className="mono-meta ml-auto">
-            {(current - 1) * pageSize + 1}–{Math.min(current * pageSize, filtered.length)} of{' '}
-            {filtered.length}
+            {(current - 1) * pageSize + 1}–{Math.min(current * pageSize, items.length)} of{' '}
+            {items.length}
           </span>
 
           <div className="flex gap-1">

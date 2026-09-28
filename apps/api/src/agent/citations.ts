@@ -228,8 +228,24 @@ async function checkSupport(state: AgentState): Promise<{ answer: string; unsupp
   return { answer: result.answer, unsupported: result.unsupported };
 }
 
-export async function citations(input: AgentState, ctx: AgentContext): Promise<AgentState> {
-  const stage = ctx.bus.begin('citations', input.iteration);
+const SUPERSCRIPT = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
+/**
+ * Markers written with superscript digits — "[¹]", "[^²³]" — rewritten as
+ * [^n]. A model drifts to them now and then; an invoice total came back as
+ * "₹ 2,95,000.00 [¹]", matched no marker, and a correctly grounded answer
+ * was replaced with an abstention over typography.
+ */
+export function normaliseMarkers(answer: string): string {
+  return answer.replace(/\[\^?([⁰¹²³⁴⁵⁶⁷⁸⁹]+)\]/g, (_whole, digits: string) => {
+    const n = [...digits].map((digit) => SUPERSCRIPT.indexOf(digit)).join('');
+    return `[^${n}]`;
+  });
+}
+
+export async function citations(raw: AgentState, ctx: AgentContext): Promise<AgentState> {
+  const stage = ctx.bus.begin('citations', raw.iteration);
+  const input = { ...raw, answer: normaliseMarkers(raw.answer) };
   const support = await checkSupport(input);
   const state = { ...input, answer: support.answer };
   const resolved = resolveCitations(state);

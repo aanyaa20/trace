@@ -14,14 +14,19 @@ const STYLE: Record<Modality, { tint: string; label: string }> = {
   video: { tint: '#2f8a76', label: 'VID' },
 };
 
+/** A mail from a connected mailbox, which is a message rather than a file. */
+const MAIL = { tint: '#5c7a99', label: 'MAIL' };
+
 export function FileIcon({
   modality,
   size = 34,
+  mail = false,
 }: {
   modality: Modality;
   size?: number;
+  mail?: boolean;
 }): React.ReactElement {
-  const { tint, label } = STYLE[modality];
+  const { tint, label } = mail ? MAIL : STYLE[modality];
 
   return (
     <span
@@ -34,7 +39,7 @@ export function FileIcon({
         // rows does not read as a colour chart.
         backgroundColor: `color-mix(in srgb, ${tint} 16%, transparent)`,
         color: tint,
-        fontSize: size <= 24 ? 8 : 9,
+        fontSize: size <= 24 || label.length > 3 ? 8 : 9,
         letterSpacing: '0.04em',
       }}
     >

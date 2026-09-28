@@ -1821,3 +1821,15 @@ input:-webkit-autofill:focus {
   font-weight: 600;
   color: var(--ink-muted);
 }
+
+/* An attachment sits under the mail it arrived with, set in by the width of
+   the mail's icon so it reads as belonging to that row, not as the next one. */
+.list-row.is-attachment {
+  padding-left: 2.25rem;
+}
+.attachment-clip {
+  color: var(--ink-faint);
+  font-size: 12px;
+  line-height: 1;
+  margin-right: -0.25rem;
+}

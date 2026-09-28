@@ -36,6 +36,20 @@
       "when": 1790617891232,
       "tag": "0004_real_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790620178344,
+      "tag": "0005_majestic_rumiko_fujikawa",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790620417186,
+      "tag": "0006_link_mail_attachments",
+      "breakpoints": true
     }
   ]
 }

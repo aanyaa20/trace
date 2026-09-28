@@ -10,6 +10,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import type { AgentTrace, Citation, VisualRegion } from '@trace/contracts';
 
@@ -84,11 +85,20 @@ export const documents = pgTable(
      * re-sync after a watermark reset imports nothing new.
      */
     externalId: text('external_id'),
+    /**
+     * The mail an attachment arrived with. A mail and its attachments are one
+     * thing to the person who received them, so the library shows them as
+     * one item and a question about the mail reaches its attachments. Each
+     * stays its own document for indexing, so an attached PDF keeps its page
+     * citations.
+     */
+    parentId: uuid('parent_id').references((): AnyPgColumn => documents.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('documents_kb_id_idx').on(t.kbId),
+    index('documents_parent_id_idx').on(t.parentId),
     index('documents_status_idx').on(t.status),
     // Postgres treats NULLs as distinct, so uploaded documents (no connector)
     // never collide here.

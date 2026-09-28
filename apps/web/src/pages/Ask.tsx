@@ -17,6 +17,7 @@ import { Thread } from '../components/Thread.js';
 import { FOLIO, FolioGreeting } from '../components/Folio.js';
 import { Segmented } from '../components/ui.js';
 import { useKb } from './KbLayout.js';
+import { displayName } from '../lib/mail.js';
 
 /** The reading room: the document on the left, the answer as marginalia. */
 export function Ask(): React.ReactElement {
@@ -488,7 +489,7 @@ export function Ask(): React.ReactElement {
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder={
-                  scope ? `Ask about ${scope.filename}` : `Ask ${FOLIO} about your documents`
+                  scope ? `Ask about ${displayName(scope)}` : `Ask ${FOLIO} about your documents`
                 }
                 disabled={busy || !conversationId}
                 className="composer-input w-full bg-transparent text-[14px] text-ink placeholder:text-ink-faint focus:outline-none disabled:opacity-50"
@@ -502,7 +503,7 @@ export function Ask(): React.ReactElement {
               {scope && (
                 <div className="mt-2 flex items-center gap-1.5">
                   <span className="chat-source" style={{ maxWidth: '100%' }}>
-                    <span className="who">asking about {scope.filename}</span>
+                    <span className="who">asking about {displayName(scope)}{library.documents.some((entry) => entry.parentId === scope.id) ? ' and its attachments' : ''}</span>
                     <button
                       type="button"
                       onClick={() => setScope(null)}
@@ -572,6 +573,12 @@ export function Ask(): React.ReactElement {
               <DocumentReader
                 document={openDoc}
                 citation={shown}
+                attachments={openDoc ? library.documents.filter((entry) => entry.parentId === openDoc.id) : []}
+                onOpenAttachment={(attachment) => {
+                  setOpenDoc(attachment);
+                  setScope(attachment);
+                  setCitation(null);
+                }}
                 onClose={() => {
                   setOpenDoc(null);
                   setScope(null);

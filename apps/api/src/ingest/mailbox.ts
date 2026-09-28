@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { AddressObject, ParsedMail } from 'mailparser';
 import type { SyncResult } from '@trace/contracts';
 import { db } from '../db/client.js';
@@ -69,6 +69,7 @@ async function insertDocument(row: {
   filename: string;
   body: Buffer;
   mime: string;
+  parentId?: string | null;
 }): Promise<Insert | null> {
   const documentId = randomUUID();
   const storagePath = storagePathFor(row.kbId, documentId, row.filename);
@@ -97,6 +98,7 @@ async function insertDocument(row: {
       status: 'queued',
       connectorId: row.connectorId,
       externalId: row.externalId,
+      parentId: row.parentId ?? null,
     })
     .onConflictDoNothing()
     .returning({ id: documents.id });
@@ -119,6 +121,10 @@ async function importMessage(
   let attachments = 0;
   let skipped = 0;
 
+  // The mail's own document, which its attachments hang from. On a re-sync
+  // the mail may already exist while an attachment is new, so it is looked
+  // up when the insert is skipped as a duplicate.
+  let parentId: string | null = null;
   const text = render(parsed);
   if (text.length > 0) {
     const body = await insertDocument({
@@ -129,8 +135,17 @@ async function importMessage(
       body: Buffer.from(text, 'utf8'),
       mime: 'text/plain',
     });
-    if (body) inserts.push(body);
-    else skipped += 1;
+    if (body) {
+      inserts.push(body);
+      parentId = body.documentId;
+    } else {
+      skipped += 1;
+      const [existing] = await db
+        .select({ id: documents.id })
+        .from(documents)
+        .where(and(eq(documents.connectorId, connector.id), eq(documents.externalId, identity)));
+      parentId = existing?.id ?? null;
+    }
   }
 
   if (connector.includeAttachments) {
@@ -150,6 +165,7 @@ async function importMessage(
         filename: attachment.filename?.trim() || `attachment-${index + 1}`,
         body: attachment.content,
         mime: attachment.contentType || 'application/octet-stream',
+        parentId,
       });
 
       if (inserted) {

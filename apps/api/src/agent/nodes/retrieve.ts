@@ -39,7 +39,7 @@ export async function retrieve(state: AgentState, ctx: AgentContext): Promise<Ag
     const scope = {
       kbId: state.kbId,
       limit: width,
-      ...(state.documentId ? { documentId: state.documentId } : {}),
+      ...(state.documentId ? { documentIds: [state.documentId, ...state.attachedIds] } : {}),
     };
     const pages = namedLocations(searchQuery(state));
     // A question answered by a chart or a table also searches charts and

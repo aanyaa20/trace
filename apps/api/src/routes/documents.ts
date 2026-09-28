@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, count, countDistinct, desc, eq } from 'drizzle-orm';
+import { and, count, countDistinct, desc, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Document, DocumentList, UploadAccepted } from '@trace/contracts';
@@ -111,6 +111,7 @@ export default async function documentRoutes(app: FastifyInstance): Promise<void
         renderedPages: Number(renderedPages),
         sourceUrl: document.sourceUrl,
         connectorId: document.connectorId,
+        parentId: document.parentId,
         createdAt: document.createdAt.toISOString(),
         updatedAt: document.updatedAt.toISOString(),
       })),
@@ -121,16 +122,24 @@ export default async function documentRoutes(app: FastifyInstance): Promise<void
   app.delete('/documents/:id', async (request, reply) => {
     const { id } = documentParams.parse(request.params);
     const document = await loadOwnedDocument(id, request.session.sub);
+    // Removing a mail removes what came attached to it. The rows would go by
+    // cascade anyway; their vectors and files would not.
+    const attached = await db
+      .select({ id: documents.id, storagePath: documents.storagePath })
+      .from(documents)
+      .where(eq(documents.parentId, id));
+    const ids = [id, ...attached.map((child) => child.id)];
 
     // Vectors go first: a leftover Postgres row is visible and fixable, while
     // a leftover vector would surface as a citation to a deleted document.
     await qdrant.delete(COLLECTION, {
       wait: true,
-      filter: { must: [{ key: 'document_id', match: { value: id } }] },
+      filter: { must: [{ key: 'document_id', match: { any: ids } }] },
     });
 
-    await db.delete(documents).where(eq(documents.id, id));
+    await db.delete(documents).where(inArray(documents.id, ids));
     await removeStoredFile(document.storagePath);
+    for (const child of attached) await removeStoredFile(child.storagePath);
 
     return reply.status(204).send();
   });

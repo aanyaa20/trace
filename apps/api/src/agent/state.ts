@@ -35,6 +35,9 @@ export interface AgentState {
    * without the scope the corpus answers with whatever ranked highest.
    */
   readonly documentId: string | null;
+  /** What arrived attached to that document — a mail's attachments — which a
+   *  question about the mail also reaches. Empty for anything else. */
+  readonly attachedIds: string[];
 
   /** 1-based; incremented by the graph, never by a node. */
   iteration: number;
@@ -91,6 +94,7 @@ export function initialState(input: {
   mode: RetrievalMode;
   history?: ConversationTurn[];
   documentId?: string | null;
+  attachedIds?: string[];
 }): AgentState {
   return {
     kbId: input.kbId,
@@ -98,6 +102,7 @@ export function initialState(input: {
     mode: input.mode,
     history: input.history ?? [],
     documentId: input.documentId ?? null,
+    attachedIds: input.attachedIds ?? [],
     iteration: 1,
     analysis: null,
     queries: [input.userQuery],

@@ -1,4 +1,7 @@
 import type { AgentTrace, Citation, RetrievalMode } from '@trace/contracts';
+import { eq } from 'drizzle-orm';
+import { db } from '../db/client.js';
+import { documents } from '../db/schema.js';
 import { env } from '../env.js';
 import { llm, llmFast } from '../llm/index.js';
 import { AgentEventBus } from './events.js';
@@ -133,6 +136,15 @@ async function runAgentic(start: AgentState, ctx: AgentContext): Promise<AgentSt
   return citations(synthesised, ctx);
 }
 
+/** The documents that arrived attached to this one: a mail's attachments. */
+async function attachmentsOf(documentId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.parentId, documentId));
+  return rows.map((row) => row.id);
+}
+
 export async function runAgent(input: RunInput): Promise<RunResult> {
   const bus = new AgentEventBus(input.mode);
   const unsubscribe = bus.subscribe(input.onEvent);
@@ -171,7 +183,9 @@ export async function runAgent(input: RunInput): Promise<RunResult> {
       userQuery: input.query,
       mode: input.mode,
       ...(input.history ? { history: input.history } : {}),
-      ...(input.documentId ? { documentId: input.documentId } : {}),
+      ...(input.documentId
+        ? { documentId: input.documentId, attachedIds: await attachmentsOf(input.documentId) }
+        : {}),
     });
     const final = input.mode === 'naive' ? await runNaive(start, ctx) : await runAgentic(start, ctx);
 

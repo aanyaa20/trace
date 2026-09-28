@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { RetrievedChunk } from '@trace/contracts';
 import { weightedRrf } from '../retrieval/hybrid.js';
-import { claimOf, resolveCitations, splitSentences, stripUnsupported } from './citations.js';
+import { claimOf, normaliseMarkers, resolveCitations, splitSentences, stripUnsupported } from './citations.js';
 import { nextQueries } from './graph.js';
 import { keywordQuery } from './nodes/analyse.js';
 import { rerankVerdicts } from './nodes/grade.js';
@@ -304,4 +304,10 @@ test('a located passage the grader accepts is enough evidence on its own', () =>
   const slide = chunk({ score: 0.7, gradedBy: 'llm', page: 3, rerankScore: 0.02 });
   const decision = decide(state({ relevant: [slide], pinned: [slide.chunkId] }), LIMITS);
   assert.equal(decision.decision, 'answer');
+});
+
+test('superscript citation markers are read as ordinary ones', () => {
+  assert.equal(normaliseMarkers('The total is ₹ 2,95,000.00 [¹]'), 'The total is ₹ 2,95,000.00 [^1]');
+  assert.equal(normaliseMarkers('Both [^¹²] and [³].'), 'Both [^12] and [^3].');
+  assert.equal(normaliseMarkers('Already [^1].'), 'Already [^1].');
 });

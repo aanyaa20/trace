@@ -15,6 +15,8 @@ export interface HybridQuery {
   modalities?: Modality[];
   /** Restricts the search to one document, for a question asked about it. */
   documentId?: string;
+  /** Restricts the search to these documents: a mail and its attachments. */
+  documentIds?: string[];
   /** Restricts the search to one page or slide number ("what does slide 3 say?"). */
   page?: number;
   /** Restricts the search to regions of these types: charts, tables, photos. */
@@ -87,7 +89,11 @@ export async function hybridSearch(request: HybridQuery): Promise<HybridResult> 
       ...(request.modalities && request.modalities.length > 0
         ? [{ key: 'modality', match: { any: request.modalities } }]
         : []),
-      ...(request.documentId ? [{ key: 'document_id', match: { value: request.documentId } }] : []),
+      ...(request.documentIds && request.documentIds.length > 0
+        ? [{ key: 'document_id', match: { any: request.documentIds } }]
+        : request.documentId
+          ? [{ key: 'document_id', match: { value: request.documentId } }]
+          : []),
       ...(request.page !== undefined ? [{ key: 'page', match: { value: request.page } }] : []),
       ...(request.regionTypes && request.regionTypes.length > 0
         ? [{ key: 'region_type', match: { any: request.regionTypes } }]
