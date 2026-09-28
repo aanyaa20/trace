@@ -179,11 +179,9 @@ check in one click, and a refusal when there is nothing to check.
 | 2 — The interface | Reading room, document reader, trace drawer, embedding map, compare mode | DECISIONS.md "Phase 2" |
 | 3 — Evaluation | Harness, datasets, metrics, first report (17 Sep) | `eval/reports/2026-09-17…md` |
 | 3b — Growth and continuity | IMAP mailboxes, threads, follow-up resolution, Groq default, Ollama fallback, the assistant "Vera", more rooms | Commit `a4f909d` (25 Sep), report .docx (21 Sep) |
-| 4 — Retrieval quality and grounding (uncommitted) | Cross-encoder rerank, weighted RRF, page/slide lookup, keyword retries, single-source sufficiency, citation support check, Office/table parsing, PDF headings, noise detection, 34-question RAG benchmark | Working tree; `eval/reports/2026-09-25T19…md` |
+| 4 — Retrieval quality and grounding (`863ad91`, 28 Sep) | Cross-encoder rerank, weighted RRF, page/slide lookup, keyword retries, single-source sufficiency, citation support check, Office/table parsing, PDF headings, noise detection, 34-question RAG benchmark | Working tree; `eval/reports/2026-09-25T19…md` |
 
-> **Note.** Phase 4 is currently uncommitted in the working tree: 55 modified
-> files (+1,648 / −233) plus 11 new files. It should be committed before this
-> report is circulated, so the report matches a commit.
+> **Note.** Phase 4 is commit `863ad91` (68 files, +4,624 / −233).
 
 ---
 
@@ -686,7 +684,7 @@ Much of the engineering value doesn't show in a metrics table:
 
 **Evaluation (highest priority)**
 
-- Commit Phase 4 and re-run the 34-question benchmark in both modes on it,
+- Re-run the 34-question benchmark in both modes on it,
   recording the git revision with each run.
 - Build a **confusable corpus** (many documents on overlapping topics, which a
   connected mailbox produces naturally) so the agentic-vs-naive comparison can
