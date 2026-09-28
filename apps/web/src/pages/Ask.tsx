@@ -46,7 +46,6 @@ export function Ask(): React.ReactElement {
   const [traceOpen, setTraceOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [greeted, setGreeted] = useState(false);
-  const [focused, setFocused] = useState(false);
   /** Width of the conversation column as a percentage. The reader takes the
    *  remainder when it is open, and nothing when it is not. */
   const [split, setSplit] = useState(62);
@@ -480,27 +479,19 @@ export function Ask(): React.ReactElement {
 
           <form onSubmit={submit} className="shrink-0 border-t border-rule px-4 py-3">
             <div
-              className="mx-auto w-full rounded-lg border px-3 py-2.5"
+              className="composer mx-auto w-full rounded-lg border px-3 py-2.5"
               // Matches the column above it, so the room has one left edge.
               data-composer=""
-
-              style={{
-                maxWidth: reading ? 820 : 1240,
-                borderColor: focused ? 'var(--vermillion)' : 'var(--rule)',
-                backgroundColor: 'var(--surface)',
-                transition: 'border-color var(--dur) var(--ease-out)',
-              }}
+              style={{ maxWidth: reading ? 820 : 1240 }}
             >
               <input
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
                 placeholder={
                   scope ? `Ask about ${scope.filename}` : `Ask ${VERA} about your documents`
                 }
                 disabled={busy || !conversationId}
-                className="w-full bg-transparent text-[14px] text-ink placeholder:text-ink-faint focus:outline-none disabled:opacity-50"
+                className="composer-input w-full bg-transparent text-[14px] text-ink placeholder:text-ink-faint focus:outline-none disabled:opacity-50"
               />
 
               {/* The scope is always on screen while it applies. A search

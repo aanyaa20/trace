@@ -14,6 +14,8 @@ const PAYLOAD_INDEXES = [
   { field: 'kb_id', schema: 'keyword' },
   { field: 'document_id', schema: 'keyword' },
   { field: 'modality', schema: 'keyword' },
+  // "What does slide 3 say?" filters on the page number directly.
+  { field: 'page', schema: 'integer' },
 ] as const;
 
 /**

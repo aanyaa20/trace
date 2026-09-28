@@ -55,9 +55,10 @@ export class GeminiProvider implements LLMProvider {
         if (!text) throw new LLMError(this.name, 'model returned an empty completion', true);
         return text;
       },
-      env.LLM_MAX_RETRIES,
+      options.maxRetries ?? env.LLM_MAX_RETRIES,
       isRetryable,
       options.signal,
+      options.maxRetryDelayMs,
     );
   }
 
@@ -122,9 +123,10 @@ export class GeminiProvider implements LLMProvider {
           throw new LLMError(this.name, 'model returned malformed JSON', true);
         }
       },
-      env.LLM_MAX_RETRIES,
+      options.maxRetries ?? env.LLM_MAX_RETRIES,
       isRetryable,
       options.signal,
+      options.maxRetryDelayMs,
     );
   }
 
@@ -145,9 +147,10 @@ export class GeminiProvider implements LLMProvider {
             ...(options.signal ? { abortSignal: options.signal } : {}),
           },
         }),
-      env.LLM_MAX_RETRIES,
+      options.maxRetries ?? env.LLM_MAX_RETRIES,
       isRetryable,
       options.signal,
+      options.maxRetryDelayMs,
     );
 
     for await (const chunk of iterator) {

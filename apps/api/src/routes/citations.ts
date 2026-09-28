@@ -59,6 +59,7 @@ export default async function citationRoutes(app: FastifyInstance): Promise<void
       tsEnd: row.chunk.tsEnd,
       imagePath: row.chunk.imagePath,
       snippet: row.chunk.text.slice(0, 280),
+      section: row.chunk.section,
       external: false,
       externalUrl: null,
       context: neighbours.map((neighbour) => neighbour.text).join('\n\n'),

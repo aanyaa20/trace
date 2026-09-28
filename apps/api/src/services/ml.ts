@@ -8,6 +8,8 @@ import {
   extractRequestSchema,
   extractResponseSchema,
   mlHealthSchema,
+  rerankRequestSchema,
+  rerankResponseSchema,
   type EmbedImageRequest,
   type EmbedImageResponse,
   type EmbedQueryRequest,
@@ -17,8 +19,10 @@ import {
   type ExtractRequest,
   type ExtractResponse,
   type MlHealth,
+  type RerankRequest,
+  type RerankResponse,
 } from '@trace/contracts';
-import type { ZodType } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import { env } from '../env.js';
 import { isAppError, toError, upstreamFailure } from '../errors.js';
 
@@ -34,7 +38,9 @@ async function call<TReq, TRes>(
   path: string,
   body: TReq,
   requestSchema: ZodType<TReq>,
-  responseSchema: ZodType<TRes>,
+  // Input left open: a response schema with defaults accepts fields the
+  // service may omit, so its input type is looser than what it returns.
+  responseSchema: ZodType<TRes, ZodTypeDef, unknown>,
   timeoutMs: number,
 ): Promise<TRes> {
   const payload = requestSchema.parse(body);
@@ -81,6 +87,9 @@ export const mlClient = {
 
   embedQuery: (req: EmbedQueryRequest): Promise<EmbedQueryResponse> =>
     call('/embed/query', req, embedQueryRequestSchema, embedQueryResponseSchema, TIMEOUTS_MS.embed),
+
+  rerank: (req: RerankRequest): Promise<RerankResponse> =>
+    call('/rerank', req, rerankRequestSchema, rerankResponseSchema, TIMEOUTS_MS.embed),
 
   async health(): Promise<MlHealth> {
     const controller = new AbortController();

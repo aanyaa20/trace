@@ -103,6 +103,9 @@ export async function webSearch(state: AgentState, ctx: AgentContext): Promise<A
         imagePath: null,
         external: true,
         externalUrl: result.url,
+      rerankScore: null,
+      gradedBy: null,
+      section: null,
       }));
 
     stage.complete({ stage: 'web_search', query, results: external });

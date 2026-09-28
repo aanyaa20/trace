@@ -790,6 +790,37 @@ select:focus-visible,
   border-radius: var(--radius-sm);
 }
 
+/* The composer. One ring for the whole box rather than a hard vermillion
+   border with the global focus ring drawn again around the field inside it:
+   the box warms to a softened accent and picks up a faint glow, and the input
+   itself — the only thing in there that takes typing — shows nothing extra. */
+.composer {
+  border-color: var(--rule);
+  background-color: var(--surface);
+  transition:
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+
+.composer:hover {
+  border-color: var(--rule-strong);
+}
+
+.composer:focus-within {
+  border-color: color-mix(in srgb, var(--vermillion) 55%, var(--rule));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--vermillion) 14%, transparent),
+    0 8px 28px -12px color-mix(in srgb, var(--vermillion) 35%, transparent);
+}
+
+/* The mode toggles and buttons inside keep their own ring for keyboard
+   users; only the text field drops it, since the box already says where the
+   focus is. */
+.composer .composer-input:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+
 /* Chrome paints autofilled fields with its own blue, which overrides the
    background but not the text colour — on the dark theme that is light text on
    pale blue. The colour cannot be set directly, so the background is painted by

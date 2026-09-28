@@ -9,8 +9,9 @@ from ..config import settings
 from ..extractors.fileapi import extract_via_file_api
 from ..extractors.image import extract_image
 from ..extractors.media import extract_audio, extract_video
+from ..extractors.office import LOCAL_OFFICE, extract_office
 from ..extractors.pdf import extract_pdf
-from ..extractors.text import extract_text
+from ..extractors.text import extract_delimited, extract_text
 from ..pool import run_blocking
 from ..schemas import ExtractRequest, ExtractResponse
 
@@ -44,8 +45,17 @@ def _dispatch(path: str, mime: str, document_id: str) -> ExtractResponse:
         return extract_audio(path)
     if normalised.startswith("video/"):
         return extract_video(path, document_id)
+    if normalised in ("text/csv", "application/csv"):
+        return extract_delimited(path)
+    if normalised == "text/tab-separated-values":
+        return extract_delimited(path, "\t")
     if normalised.startswith("text/") or normalised in _TEXT_MIMES:
         return extract_text(path)
+    if normalised in LOCAL_OFFICE:
+        try:
+            return extract_office(path, normalised)
+        except Exception as exc:  # a malformed file: let the fallback try
+            logger.warning("local office extraction failed (%s); trying the file api", exc)
 
     return extract_via_file_api(path, normalised)
 

@@ -15,7 +15,18 @@ const params = z.object({ id: z.string().uuid() });
 
 function filenameFor(url: string, contentType: string): string {
   const parsed = new URL(url);
-  const last = parsed.pathname.split('/').filter(Boolean).pop();
+  const segment = parsed.pathname.split('/').filter(Boolean).pop();
+  // A URL path is percent-encoded, so a Hindi Wikipedia page arrives as
+  // %E0%A4%AE%E0%A5%81…; decode it first or the filename is the escape codes.
+  // A malformed escape is left as it was rather than failing the ingest.
+  let last = segment;
+  if (segment) {
+    try {
+      last = decodeURIComponent(segment);
+    } catch {
+      last = segment;
+    }
+  }
   const extension = contentType === 'application/pdf' ? '.pdf' : '.txt';
   const base = safeFilename(last ?? parsed.hostname);
   return base.includes('.') ? base : `${base}${extension}`;

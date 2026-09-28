@@ -28,6 +28,8 @@ class ExtractBlock(BaseModel):
     tsEnd: float | None = None
     bbox: tuple[float, float, float, float] | None = None
     imagePath: str | None = None
+    # Heading this block sits under, or a slide title, when known.
+    section: str | None = None
 
 
 class ExtractRequest(BaseModel):
@@ -72,6 +74,19 @@ class EmbedQueryResponse(BaseModel):
     dense: list[float]
     sparse: SparseVector
     clip: list[float] | None = None
+
+
+class RerankRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=4000)
+    passages: list[str] = Field(min_length=1, max_length=100)
+
+
+class RerankResponse(BaseModel):
+    # Raw cross-encoder logits and their sigmoid, aligned with the request's
+    # passages. Order is the caller's; nothing is sorted here.
+    logits: list[float]
+    scores: list[float]
+    model: str
 
 
 class HealthResponse(BaseModel):

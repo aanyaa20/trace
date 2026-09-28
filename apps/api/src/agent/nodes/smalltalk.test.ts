@@ -72,7 +72,8 @@ test('a long message is not small talk even when it opens with a greeting', () =
 test('empty and whitespace input classify as nothing', () => {
   assert.equal(classifySmallTalk(''), null);
   assert.equal(classifySmallTalk('   '), null);
-  assert.equal(classifySmallTalk('!!!'), null);
+  // Symbols alone are not nothing: they get the "didn't understand" reply.
+  assert.equal(classifySmallTalk('!!!'), 'unintelligible');
 });
 
 test('every kind has a reply, and none of them claims to have read anything', () => {
@@ -97,4 +98,42 @@ test('every kind has a reply, and none of them claims to have read anything', ()
 
 test('it does not pretend to know the reader', () => {
   assert.match(smallTalkReply('about_user'), /don't know anything about you/);
+});
+
+test('keyboard noise is answered with "I didn\'t understand" instead of a search', () => {
+  for (const input of ['fnj3f3', 'asdfgh', 'qwerty', 'sdfgh jkl', 'jjjjjj', '???', '!!!', 'a1b2c3', 'xcvbn zxcv']) {
+    assert.equal(classifySmallTalk(input), 'unintelligible', input);
+  }
+  assert.match(smallTalkReply('unintelligible'), /didn't understand/);
+});
+
+test('drawn-out small talk is still small talk, not noise', () => {
+  assert.equal(classifySmallTalk('hmmmm'), 'acknowledgement');
+  assert.equal(classifySmallTalk('ohhhh'), 'acknowledgement');
+  assert.equal(classifySmallTalk('hiiii'), 'greeting');
+});
+
+/**
+ * The mistake that costs most: a real question dismissed as noise is never
+ * retrieved. Terms, acronyms, filenames and other scripts all look odd to a
+ * rule about vowels, and all of them must reach the loop.
+ */
+test('short, odd-looking questions are not mistaken for noise', () => {
+  for (const input of [
+    'BM25',
+    'OCR',
+    'RRF?',
+    'q01',
+    'gpt4',
+    '2005.11401v4.pdf',
+    'chunking',
+    'Qdrant',
+    'rhythm',
+    'strengths',
+    'हिन्दी में कितने लेख हैं?',
+    'fnj3f3 chunking',
+    'what is fnj3f3',
+  ]) {
+    assert.notEqual(classifySmallTalk(input), 'unintelligible', input);
+  }
 });

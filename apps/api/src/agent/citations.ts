@@ -1,4 +1,8 @@
 import type { Citation } from '@trace/contracts';
+import { env } from '../env.js';
+import { toError } from '../errors.js';
+import { logger } from '../logger.js';
+import { mlClient } from '../services/ml.js';
 import { evidenceFor, type AgentContext, type AgentState } from './state.js';
 import { ABSTENTION_TEXT } from './nodes/synthesise.js';
 
@@ -54,6 +58,7 @@ export function resolveCitations(state: AgentState): ResolvedCitations {
       tsEnd: chunk.tsEnd,
       imagePath: chunk.imagePath,
       snippet: chunk.text.slice(0, SNIPPET_CHARS),
+      section: chunk.section,
       external: chunk.external,
       externalUrl: chunk.externalUrl,
     });
@@ -92,8 +97,129 @@ export function resolveCitations(state: AgentState): ResolvedCitations {
   };
 }
 
-export async function citations(state: AgentState, ctx: AgentContext): Promise<AgentState> {
-  const stage = ctx.bus.begin('citations', state.iteration);
+/**
+ * Splits an answer into sentences and the separators between them, so it can
+ * be rebuilt exactly after a sentence is removed. A sentence ends at . ! or ?
+ * followed by any citation markers — "claim.[^1]" and "claim [^1]." both keep
+ * their marker — and every line break is a boundary, so list items stand alone.
+ * A decimal like "3.2" is not a boundary: the split needs whitespace after it.
+ */
+export function splitSentences(answer: string): string[] {
+  return answer.split(/((?<=[.!?](?:\s*\[\^?\d+\])*)[ \t]+|\n+)/);
+}
+
+const MARKER_ONLY = /\[\^?(\d+)\]/g;
+
+/** The words of a sentence, markers removed, as the claim to be checked. */
+export function claimOf(sentence: string): string {
+  return sentence.replace(MARKER_ONLY, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Rebuilds the answer with unsupported markers removed. `supported(sentence,
+ * marker)` is the verdict for one citation. A sentence that carried markers
+ * and loses all of them is dropped: it made a claim no source was found to
+ * support, and leaving it in uncited would present an unverified statement
+ * with the same authority as a verified one.
+ */
+export function stripUnsupported(
+  answer: string,
+  supported: (claim: string, marker: number) => boolean,
+): { answer: string; unsupported: number[]; droppedSentences: number } {
+  const unsupported = new Set<number>();
+  let droppedSentences = 0;
+
+  const parts = splitSentences(answer).map((part, index) => {
+    if (index % 2 === 1) return part; // a separator
+    const markers = [...part.matchAll(MARKER_ONLY)].map((match) => Number(match[1]));
+    if (markers.length === 0) return part;
+
+    const claim = claimOf(part);
+    const failing = markers.filter((marker) => !supported(claim, marker));
+    if (failing.length === 0) return part;
+
+    failing.forEach((marker) => unsupported.add(marker));
+    if (failing.length === markers.length) {
+      droppedSentences += 1;
+      return '';
+    }
+    let kept = part;
+    for (const marker of failing) {
+      kept = kept.replaceAll(`[^${marker}]`, '').replaceAll(`[${marker}]`, '');
+    }
+    return kept;
+  });
+
+  const rebuilt = parts
+    .join('')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return { answer: rebuilt, unsupported: [...unsupported].sort((a, b) => a - b), droppedSentences };
+}
+
+/** Claims shorter than this are headings, list labels or connectives. */
+const MIN_CLAIM_CHARS = 20;
+
+/**
+ * Scores every cited sentence against the passage it cites, with the local
+ * cross-encoder, and strips the citations that fall below CITATION_MIN_SUPPORT.
+ * The threshold is low on purpose: a faithful paraphrase scores well above it,
+ * and it exists to catch a marker pointing at a passage about something else
+ * entirely. If the reranker is unavailable the check is skipped, not failed.
+ */
+async function checkSupport(state: AgentState): Promise<{ answer: string; unsupported: number[] }> {
+  if (env.CITATION_MIN_SUPPORT <= 0 || state.abstained) return { answer: state.answer, unsupported: [] };
+  const evidence = evidenceFor(state);
+
+  const pairs = new Map<string, { claim: string; marker: number }>();
+  splitSentences(state.answer).forEach((part, index) => {
+    if (index % 2 === 1) return;
+    const claim = claimOf(part);
+    if (claim.length < MIN_CLAIM_CHARS) return;
+    for (const match of part.matchAll(MARKER_ONLY)) {
+      const marker = Number(match[1]);
+      const chunk = evidence[marker - 1];
+      // External results and images have no passage text worth scoring against.
+      if (!chunk || chunk.external || chunk.text.trim().length === 0) continue;
+      pairs.set(`${marker}\u0000${claim}`, { claim, marker });
+    }
+  });
+  if (pairs.size === 0) return { answer: state.answer, unsupported: [] };
+
+  const verdicts = new Map<string, number>();
+  try {
+    const byClaim = new Map<string, number[]>();
+    for (const { claim, marker } of pairs.values()) {
+      byClaim.set(claim, [...(byClaim.get(claim) ?? []), marker]);
+    }
+    await Promise.all(
+      [...byClaim.entries()].map(async ([claim, markers]) => {
+        const response = await mlClient.rerank({
+          query: claim,
+          passages: markers.map((marker) => evidence[marker - 1]!.text.slice(0, 2000)),
+        });
+        markers.forEach((marker, index) => {
+          verdicts.set(`${marker}\u0000${claim}`, response.scores[index] ?? 1);
+        });
+      }),
+    );
+  } catch (cause) {
+    logger.warn({ err: toError(cause).message }, 'citation support check skipped');
+    return { answer: state.answer, unsupported: [] };
+  }
+
+  const result = stripUnsupported(state.answer, (claim, marker) => {
+    const score = verdicts.get(`${marker}\u0000${claim}`);
+    return score === undefined || score >= env.CITATION_MIN_SUPPORT;
+  });
+  return { answer: result.answer, unsupported: result.unsupported };
+}
+
+export async function citations(input: AgentState, ctx: AgentContext): Promise<AgentState> {
+  const stage = ctx.bus.begin('citations', input.iteration);
+  const support = await checkSupport(input);
+  const state = { ...input, answer: support.answer };
   const resolved = resolveCitations(state);
 
   // An answer that claimed something but grounded none of it is exactly the
@@ -105,6 +231,7 @@ export async function citations(state: AgentState, ctx: AgentContext): Promise<A
     stage: 'citations',
     citations: resolved.citations,
     rejectedMarkers: resolved.rejectedMarkers,
+    unsupportedMarkers: support.unsupported,
   });
 
   return {

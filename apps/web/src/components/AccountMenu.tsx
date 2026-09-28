@@ -96,7 +96,12 @@ export function AccountMenu(): React.ReactElement {
                 className="menu-item is-danger"
                 onClick={() => {
                   close();
-                  void signOut().then(() => navigate('/'));
+                  // Leave first, then sign out. The other way round, the app
+                  // shell sees the session end before this navigation runs and
+                  // sends the reader to /signin — a sign-in form is the wrong
+                  // thing to show someone who just chose to leave.
+                  navigate('/', { replace: true });
+                  void signOut();
                 }}
               >
                 Sign out

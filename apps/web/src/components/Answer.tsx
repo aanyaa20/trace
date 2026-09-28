@@ -1,5 +1,6 @@
 import type { Citation } from '@trace/contracts';
 import type { AnswerState } from '../lib/useAnswer.js';
+import { citationLabel } from '../lib/citationLabel.js';
 
 const MARKER = /\[\^(\d+)\]/g;
 
@@ -49,13 +50,7 @@ function Marker({
     );
   }
 
-  const where = [
-    citation.filename,
-    citation.page !== null ? `page ${citation.page}` : null,
-    citation.tsStart !== null ? `at ${Math.floor(citation.tsStart / 60)}:${String(Math.floor(citation.tsStart % 60)).padStart(2, '0')}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const where = citationLabel(citation);
 
   return (
     <button

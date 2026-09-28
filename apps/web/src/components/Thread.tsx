@@ -3,6 +3,7 @@ import type { AnswerState } from '../lib/useAnswer.js';
 import { Answer } from './Answer.js';
 import { Groundedness } from './Groundedness.js';
 import { VERA, stageLabel } from './Vera.js';
+import { citationLabel, locationOf } from '../lib/citationLabel.js';
 
 /**
  * The conversation, as a conversation. Turns alternate sides, the newest is at
@@ -21,16 +22,6 @@ function stateOf(message: Message): AnswerState {
     abstained: message.abstained,
     error: null,
   };
-}
-
-function whereOf(citation: Citation): string {
-  if (citation.page !== null) return `p.${citation.page}`;
-  if (citation.tsStart !== null) {
-    const minutes = Math.floor(citation.tsStart / 60);
-    const seconds = String(Math.floor(citation.tsStart % 60)).padStart(2, '0');
-    return `${minutes}:${seconds}`;
-  }
-  return citation.external ? 'external' : '';
 }
 
 function metaOf(state: AnswerState): string | null {
@@ -103,11 +94,11 @@ function Sources({
                 onMouseLeave={() => onActiveMarker?.(null)}
                 onFocus={() => onActiveMarker?.(citation.marker)}
                 onBlur={() => onActiveMarker?.(null)}
-                title={`Open ${group.filename} at ${whereOf(citation) || 'this passage'}`}
+                title={`Open ${citationLabel(citation)}`}
                 className={`source-mark${activeMarker === citation.marker ? ' is-active' : ''}`}
               >
                 <span className="n">{citation.marker}</span>
-                {whereOf(citation) && <span className="where">{whereOf(citation)}</span>}
+                {locationOf(citation) && <span className="where">{locationOf(citation)}</span>}
               </button>
             ))}
           </span>

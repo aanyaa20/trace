@@ -41,8 +41,25 @@ export interface AgentState {
   analysis: QueryAnalysis | null;
   /** Queries the next retrieval will run. Seeded with the user's own words. */
   queries: string[];
+  /** Every query already run this turn, so a retry never repeats one. */
+  tried: string[];
   candidates: RetrievedChunk[];
   grades: ChunkGrade[];
+  /**
+   * Whether any grading call has succeeded this run, and whether any pass
+   * failed outright. Together they separate "the corpus has nothing" from
+   * "the grader could not be reached": an abstention after grading never once
+   * worked is a statement about the service, and must not be worded as one
+   * about the documents.
+   */
+  gradedOk: boolean;
+  gradeFailed: boolean;
+  /** The current candidates carry cross-encoder scores. Reset by retrieve. */
+  reranked: boolean;
+  /** Unique fused candidates the latest retrieval returned, before reranking. */
+  retrievedCount: number;
+  /** Chunks fetched because the question named their page or slide. */
+  pinned: string[];
   relevant: RetrievedChunk[];
   external: RetrievedChunk[];
   decision: SufficiencyDecision | null;
@@ -82,8 +99,14 @@ export function initialState(input: {
     iteration: 1,
     analysis: null,
     queries: [input.userQuery],
+    tried: [],
     candidates: [],
     grades: [],
+    gradedOk: false,
+    gradeFailed: false,
+    reranked: false,
+    retrievedCount: 0,
+    pinned: [],
     relevant: [],
     external: [],
     decision: null,

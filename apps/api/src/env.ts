@@ -58,8 +58,53 @@ const envSchema = z.object({
   AGENT_MAX_ITERATIONS: z.coerce.number().int().min(1).max(5).default(3),
   SUFFICIENCY_MIN_RELEVANT_CHUNKS: z.coerce.number().int().min(1).default(2),
   SUFFICIENCY_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.55),
+  /** One passage is enough on its own when the grader scores it at least this
+   *  and the reranker agrees (>= 0.5). A fact stated once in the corpus —
+   *  an identifier, a date, a single definition — is still a fact. */
+  SUFFICIENCY_SINGLE_SOURCE_SCORE: z.coerce.number().min(0).max(1).default(0.85),
+  /** The same, for a passage only the reranker judged (grader unavailable).
+   *  Calibrated: relevant passages score 0.99+, traps and noise 0.00-0.03. */
+  SUFFICIENCY_SINGLE_SOURCE_RERANK: z.coerce.number().min(0).max(1).default(0.95),
   RETRIEVAL_TOP_K: z.coerce.number().int().positive().default(12),
   RETRIEVAL_PREFETCH_K: z.coerce.number().int().positive().default(40),
+  /** Fused candidates handed to the reranker per iteration (agentic mode). */
+  RETRIEVAL_CANDIDATES: z.coerce.number().int().positive().default(20),
+  /** Relative weight of each branch in the weighted reciprocal-rank fusion. */
+  HYBRID_DENSE_WEIGHT: z.coerce.number().min(0).default(1),
+  HYBRID_SPARSE_WEIGHT: z.coerce.number().min(0).default(1),
+  HYBRID_RRF_K: z.coerce.number().int().positive().default(60),
+  /** Cross-encoder reranking between retrieval and grading. */
+  RERANK_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  /** Candidates kept after reranking, and so the most the grader reads. */
+  RERANK_TOP_K: z.coerce.number().int().positive().default(8),
+  /** Below this the reranker is sure a passage is noise; it is not graded. */
+  RERANK_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.01),
+  /** The best this-many reranked candidates are graded whatever their score,
+   *  so a cross-encoder blind spot (tables, statistics) cannot hide an answer. */
+  RERANK_MIN_KEEP: z.coerce.number().int().nonnegative().default(3),
+  /** When the LLM grader is unavailable, a reranked passage at or above this
+   *  counts as relevant evidence instead. */
+  RERANK_FALLBACK_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.2),
+  /** Grade the reranked candidates with the fast LLM. Off means the
+   *  reranker alone decides, which spends no LLM request on grading. */
+  GRADE_WITH_LLM: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  /** Most sources handed to synthesis, best first. */
+  SYNTHESIS_MAX_SOURCES: z.coerce.number().int().positive().default(8),
+  /** Drop a citation when its sentence scores below this against the cited
+   *  passage on the cross-encoder. 0 disables the check. */
+  CITATION_MIN_SUPPORT: z.coerce.number().min(0).max(1).default(0.02),
+  /** Records the exact context handed to synthesis in the trace. Development
+   *  only: it copies passage text into every stored trace. */
+  AGENT_DEBUG: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   WEB_SEARCH_PROVIDER: z.enum(['duckduckgo', 'tavily', 'none']).default('duckduckgo'),
   TAVILY_API_KEY: z.string().default(''),
 
@@ -94,6 +139,9 @@ function load(): Env {
   const value = parsed.data;
   if (value.CHUNK_OVERLAP_CHARS >= value.CHUNK_SIZE_CHARS) {
     throw new Error('CHUNK_OVERLAP_CHARS must be smaller than CHUNK_SIZE_CHARS');
+  }
+  if (value.HYBRID_DENSE_WEIGHT + value.HYBRID_SPARSE_WEIGHT === 0) {
+    throw new Error('HYBRID_DENSE_WEIGHT and HYBRID_SPARSE_WEIGHT cannot both be 0');
   }
   if (value.RETRIEVAL_PREFETCH_K < value.RETRIEVAL_TOP_K) {
     throw new Error('RETRIEVAL_PREFETCH_K must be at least RETRIEVAL_TOP_K');

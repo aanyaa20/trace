@@ -1,7 +1,19 @@
+import { env } from '../../env.js';
 import { toError } from '../../errors.js';
+import { searchQuery } from './analyse.js';
 import { evidenceFor, type AgentContext, type AgentState } from '../state.js';
 
 const MAX_CHARS_PER_SOURCE = 1600;
+
+/**
+ * The same distinction for the grader. Passages were found, but the model that
+ * judges them could not be reached (on a free tier, usually a per-minute
+ * limit), so nothing was allowed through. Refusing is still right — ungraded
+ * passages are not evidence — but saying the documents lack an answer would
+ * be false.
+ */
+export const GRADING_FAILED_TEXT =
+  "Sorry, I couldn't check the passages I found — the AI service is busy right now (its per-minute limit was reached). This is not a statement about your documents. Please ask again in about a minute.";
 
 export const ABSTENTION_TEXT =
   'The documents in this knowledge base do not contain enough evidence to answer that. Nothing here is close enough to the question for me to cite, so I would be guessing.';
@@ -15,7 +27,8 @@ export const ABSTENTION_TEXT =
 export const SYNTHESIS_FAILED_TEXT =
   'The answer could not be generated because the language model was unavailable. The retrieval steps above completed, so this is not a statement about your documents. Try again in a moment.';
 
-const SYSTEM = `You answer strictly from the numbered sources you are given.
+const SYSTEM = `You answer questions about the user's own documents, strictly
+from the numbered sources you are given.
 
 Rules, in order of importance:
 1. Cite or do not claim. Every sentence containing a fact must end with a
@@ -26,15 +39,33 @@ Rules, in order of importance:
    than two. Do not attach every source you were given to every sentence: a
    marker is a pointer to where a reader should look, and a claim that points
    everywhere points nowhere.
-2. Never use a source number you were not given.
+2. Never use a source number you were not given. Never invent a page number,
+   timestamp, filename, author, date or figure. The sources' labels are the
+   only locations that exist.
 3. If the sources do not support an answer, say so plainly in one or two
    sentences and cite nothing. Do not hedge, do not pad, and do not offer a
    partial answer built on a source that does not really support it. An honest
    "the sources do not cover this" is a correct answer, not a failure.
-4. Sources marked EXTERNAL came from a web search and are not part of the
+4. A missing detail is not a missing topic. When the question asks for a
+   specific detail — a date, a name, a number, a price, a CEO, an author —
+   that the sources do not state, say explicitly that the documents do not
+   provide it, even if they discuss the subject at length. Never guess one,
+   and never supply it from memory.
+5. When sources disagree, say that they disagree and cite each side. Never
+   silently merge conflicting claims into one.
+6. Do not add facts from your own knowledge. If the user explicitly asks for
+   something beyond the documents, say that it is outside the provided
+   material; if you then add general background, put it in its own sentence
+   that begins "Outside your documents," and cite nothing.
+7. Sources marked EXTERNAL came from a web search and are not part of the
    user's corpus. You may use them, but say in the sentence that the claim
    comes from outside the corpus.
-5. Write plainly. No preamble, no restating the question, no summary of what
+8. Follow the requested form — simpler wording ("like I'm 10"), a list, a
+   table, a comparison, questions or MCQs, a summary — without changing what
+   the sources say. For a comparison, cover each side from its own sources.
+   Questions or MCQs you write must be answerable from the sources, and each
+   one's answer must be cited.
+9. Write plainly. No preamble, no restating the question, no summary of what
    you are about to say.`;
 
 function buildContext(state: AgentState): string {
@@ -42,7 +73,10 @@ function buildContext(state: AgentState): string {
     .map((chunk, index) => {
       const marker = index + 1;
       const locator: string[] = [chunk.filename];
-      if (chunk.page !== null) locator.push(`page ${chunk.page}`);
+      if (chunk.page !== null) {
+        locator.push(`${/\.pptx?$/i.test(chunk.filename) ? 'slide' : 'page'} ${chunk.page}`);
+      }
+      if (chunk.section) locator.push(`section "${chunk.section}"`);
       if (chunk.tsStart !== null) {
         locator.push(`${formatTimestamp(chunk.tsStart)}-${formatTimestamp(chunk.tsEnd ?? chunk.tsStart)}`);
       }
@@ -63,20 +97,57 @@ function formatTimestamp(seconds: number): string {
  * Streams the answer. Tokens reach the client as they are produced, which is
  * why this node writes through ctx.onToken rather than returning a string.
  */
-export async function synthesise(state: AgentState, ctx: AgentContext): Promise<AgentState> {
-  const stage = ctx.bus.begin('synthesise', state.iteration);
+/**
+ * The evidence synthesis may read: the best SYNTHESIS_MAX_SOURCES corpus
+ * passages, plus any external results. Applied to the state itself, not just
+ * to the prompt, because the citation resolver numbers sources from the same
+ * list — trimming only the prompt would point marker [3] at a different
+ * passage than the model read as source 3.
+ */
+export function capEvidence(state: AgentState, max = env.SYNTHESIS_MAX_SOURCES): AgentState {
+  if (state.relevant.length <= max) return state;
+  const best = [...state.relevant].sort((a, b) => b.score - a.score).slice(0, max);
+  return { ...state, relevant: best };
+}
+
+/** The question as synthesis should read it, with the user's own words kept
+ *  alongside when a follow-up was resolved, since those carry the requested
+ *  form ("like I'm 10", "as a table"). */
+function questionFor(state: AgentState): string {
+  const resolved = searchQuery(state);
+  return resolved === state.userQuery
+    ? state.userQuery
+    : `${resolved}\n(The user's own words, in context of the conversation: "${state.userQuery}")`;
+}
+
+export async function synthesise(input: AgentState, ctx: AgentContext): Promise<AgentState> {
+  const stage = ctx.bus.begin('synthesise', input.iteration);
+  const state = capEvidence(input);
   const evidence = evidenceFor(state);
+  const question = questionFor(state);
+  const sources = evidence.map((chunk, index) => ({
+    n: index + 1,
+    chunkId: chunk.chunkId,
+    filename: chunk.filename,
+    page: chunk.page,
+    tsStart: chunk.tsStart,
+    tsEnd: chunk.tsEnd,
+    score: chunk.score,
+    external: chunk.external,
+    ...(env.AGENT_DEBUG ? { text: chunk.text.slice(0, MAX_CHARS_PER_SOURCE) } : {}),
+  }));
 
   // The sufficiency gate is authoritative. Synthesising from evidence the gate
   // already judged insufficient would make the abstention path decorative, and
   // the trace would show a decision the answer contradicts.
   if (state.decision === 'abstain' || evidence.length === 0) {
-    ctx.onToken(ABSTENTION_TEXT);
-    stage.complete({ stage: 'synthesise', abstained: true, characters: ABSTENTION_TEXT.length });
-    return { ...state, answer: ABSTENTION_TEXT, abstained: true };
+    const text = state.gradeFailed && !state.gradedOk ? GRADING_FAILED_TEXT : ABSTENTION_TEXT;
+    ctx.onToken(text);
+    stage.complete({ stage: 'synthesise', abstained: true, characters: text.length, question, sources });
+    return { ...state, answer: text, abstained: true };
   }
 
-  const prompt = `Question: ${state.userQuery}
+  const prompt = `Question: ${question}
 
 Sources:
 ${buildContext(state)}
@@ -106,7 +177,13 @@ Answer the question using only these sources, citing each factual sentence with
     // An answer with no marker at all cited nothing, which by rule 1 means it
     // claimed nothing it could support. Citation resolution decides whether
     // that becomes an abstention.
-    stage.complete({ stage: 'synthesise', abstained: false, characters: trimmed.length });
+    stage.complete({
+      stage: 'synthesise',
+      abstained: false,
+      characters: trimmed.length,
+      question,
+      sources,
+    });
     return { ...state, answer: trimmed, abstained: false };
   } catch (cause) {
     const message = toError(cause).message;

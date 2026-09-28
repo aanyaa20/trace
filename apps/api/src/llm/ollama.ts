@@ -79,9 +79,10 @@ export class OllamaProvider implements LLMProvider {
   async generate(prompt: string, options: GenerateOptions = {}): Promise<string> {
     return withRetry(
       () => this.call(prompt, options, false),
-      env.LLM_MAX_RETRIES,
+      options.maxRetries ?? env.LLM_MAX_RETRIES,
       isRetryable,
       options.signal,
+      options.maxRetryDelayMs,
     );
   }
 
@@ -95,9 +96,10 @@ export class OllamaProvider implements LLMProvider {
 
     const first = await withRetry(
       () => this.call(instruction, options, true),
-      env.LLM_MAX_RETRIES,
+      options.maxRetries ?? env.LLM_MAX_RETRIES,
       isRetryable,
       options.signal,
+      options.maxRetryDelayMs,
     );
 
     const parsed = schema.safeParse(safeParseJson(first));
@@ -118,9 +120,10 @@ export class OllamaProvider implements LLMProvider {
 
     const second = await withRetry(
       () => this.call(repairPrompt, options, true),
-      env.LLM_MAX_RETRIES,
+      options.maxRetries ?? env.LLM_MAX_RETRIES,
       isRetryable,
       options.signal,
+      options.maxRetryDelayMs,
     );
 
     const repaired = schema.safeParse(safeParseJson(second));

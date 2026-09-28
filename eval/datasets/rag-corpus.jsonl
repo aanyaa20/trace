@@ -1,0 +1,39 @@
+// RAG benchmark over two real documents: the RAG paper (Lewis et al., arXiv 2005.11401v4.pdf)
+// and the Wikipedia article "Retrieval-augmented generation" ingested by URL.
+// Every expected answer and page below was checked against the indexed chunk text.
+// Category is the id prefix: fact, sem, kw, num, sec, hop, cmp, xdoc, sum, ext, gen, trap, miss.
+// Run: pnpm --filter @trace/api eval answer --dataset /app/eval/datasets/rag-corpus.jsonl --kb <kbId> --mode both
+{"id":"fact-01","question":"What pre-trained model does RAG use as its generator?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[3],"expectAnswerContains":["BART"],"note":"direct factual; section 2.3 Generator: BART"}
+{"id":"fact-02","question":"How many parameters does the BART generator have?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[3],"expectAnswerContains":["400M"],"note":"direct factual, number"}
+{"id":"fact-03","question":"Which Wikipedia dump does RAG use as its knowledge source?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[4],"expectAnswerContains":["December 2018"],"note":"direct factual, date"}
+{"id":"fact-04","question":"Which organisation are most of the RAG paper's authors affiliated with?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[1],"expectAnswerContains":["Facebook"],"note":"author/affiliation lookup on the title page"}
+{"id":"sem-01","question":"What is the role of the generator in RAG?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[2,3],"expectAnswerContains":["generat"],"note":"semantic; the regression that motivated reranking"}
+{"id":"sem-02","question":"What is the role of the retriever in RAG?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[2,3],"expectAnswerContains":["retriev"],"note":"semantic"}
+{"id":"sem-03","question":"Why does RAG reduce hallucinations?","relevantDocuments":["Retrieval-augmented_generation.txt"],"expectAnswerContains":["hallucination"],"note":"semantic, answered by the Wikipedia article"}
+{"id":"sem-04","question":"How can a RAG model's knowledge be updated without retraining?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[7],"expectAnswerContains":["index"],"note":"semantic; index hot-swapping"}
+{"id":"kw-01","question":"What is MIPS used for in RAG?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[2,3,4],"expectAnswerContains":["inner product"],"note":"exact keyword/acronym"}
+{"id":"kw-02","question":"What is FAISS used for in the RAG paper?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[4],"expectAnswerContains":["index"],"note":"exact keyword"}
+{"id":"kw-03","question":"What is index hot-swapping?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[7],"expectAnswerContains":["update"],"note":"exact phrase"}
+{"id":"num-01","question":"How many documents is the Wikipedia dump split into?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[4],"expectAnswerContains":["21M"],"note":"number lookup"}
+{"id":"num-02","question":"How long is each Wikipedia chunk used as a retrieval document?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[4],"expectAnswerContains":["100"],"note":"number lookup: 100-word chunks"}
+{"id":"num-03","question":"What exact match score does RAG-Sequence get on Natural Questions?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[6],"expectAnswerContains":["44.5"],"note":"number lookup inside a results table"}
+{"id":"sec-01","question":"What does section 2.3 of the RAG paper describe?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[3],"expectAnswerContains":["BART"],"note":"section lookup by number"}
+{"id":"hop-01","question":"How many parameters does the model that RAG uses as its generator have, and what was it pre-trained with?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[3],"expectAnswerContains":["400M"],"note":"multi-hop: generator -> BART -> parameters and denoising objective"}
+{"id":"hop-02","question":"Which dump is split into 21M documents, and how is it searched?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[4],"expectAnswerContains":["December 2018"],"note":"multi-hop across one passage"}
+{"id":"cmp-01","question":"Compare RAG-Sequence and RAG-Token.","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[3],"expectAnswerContains":["token"],"note":"comparison"}
+{"id":"cmp-02","question":"How does RAG differ from parametric-only models like T5 or BART when knowledge changes?","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[7],"expectAnswerContains":["retrain"],"note":"comparison"}
+{"id":"xdoc-01","question":"According to both documents, what problem does retrieval-augmented generation address?","relevantDocuments":["2005.11401v4.pdf","Retrieval-augmented_generation.txt"],"note":"cross-document; each claim must cite the right file"}
+{"id":"xdoc-02","question":"When was RAG first proposed, and which research group proposed it?","relevantDocuments":["Retrieval-augmented_generation.txt","2005.11401v4.pdf"],"expectAnswerContains":["2020"],"note":"cross-document: year from Wikipedia, authors from the paper"}
+{"id":"sum-01","question":"Summarise the RAG paper's abstract.","relevantDocuments":["2005.11401v4.pdf"],"relevantPages":[1],"note":"summarisation of one section"}
+{"id":"sum-02","question":"Give a short overview of what the Wikipedia article says about RAG.","relevantDocuments":["Retrieval-augmented_generation.txt"],"note":"summarisation"}
+{"id":"ext-01","question":"List the tasks the RAG paper evaluates on.","relevantDocuments":["2005.11401v4.pdf"],"expectAnswerContains":["Jeopardy"],"note":"extraction/list"}
+{"id":"ext-02","question":"What datasets are mentioned for open-domain question answering?","relevantDocuments":["2005.11401v4.pdf"],"expectAnswerContains":["Natural Questions"],"note":"extraction"}
+{"id":"gen-01","question":"Explain RAG like I'm 10.","relevantDocuments":["2005.11401v4.pdf","Retrieval-augmented_generation.txt"],"note":"simplification; must stay grounded"}
+{"id":"gen-02","question":"Write three multiple-choice questions about the RAG generator.","relevantDocuments":["2005.11401v4.pdf"],"note":"question generation; each answer must be cited"}
+{"id":"trap-01","question":"Who is the CEO of RAG?","unanswerable":true,"note":"hallucination trap: RAG is a method, it has no CEO"}
+{"id":"trap-02","question":"What is RAG's stock price?","unanswerable":true,"note":"hallucination trap"}
+{"id":"trap-03","question":"What is BERT's stock price?","unanswerable":true,"note":"hallucination trap about an entity the corpus mentions only in passing"}
+{"id":"trap-04","question":"How much did it cost to train the RAG models, in US dollars?","unanswerable":true,"note":"plausible-sounding detail the paper does not state"}
+{"id":"miss-01","question":"What is the exact date the Wikipedia article on RAG was first created?","unanswerable":true,"note":"missing detail: the article text does not state its own creation date"}
+{"id":"miss-02","question":"What was the name of the GPU cluster used to train RAG?","unanswerable":true,"note":"missing detail"}
+{"id":"miss-03","question":"What is the capital of Australia?","unanswerable":true,"note":"general knowledge outside the corpus; must not answer from memory"}

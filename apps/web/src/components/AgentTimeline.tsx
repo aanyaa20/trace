@@ -5,6 +5,7 @@ const STAGE_LABEL: Record<AgentStage, string> = {
   converse: 'converse',
   analyse: 'analyse',
   retrieve: 'retrieve',
+  rerank: 'rerank',
   grade: 'grade',
   sufficiency: 'sufficiency',
   web_search: 'web search',
@@ -41,6 +42,16 @@ function collapse(events: AgentEvent[]): AgentEvent[] {
   return rows;
 }
 
+/** "paper.pdf p.3" / "lecture.mp4 12:43" — where a candidate sits. */
+function where(item: { filename: string; page: number | null; tsStart: number | null }): string {
+  if (item.page !== null) return `${item.filename} p.${item.page}`;
+  if (item.tsStart !== null) {
+    const m = Math.floor(item.tsStart / 60);
+    return `${item.filename} ${m}:${String(Math.floor(item.tsStart % 60)).padStart(2, '0')}`;
+  }
+  return item.filename;
+}
+
 function StagePayload({ event }: { event: AgentEvent }): React.ReactElement | null {
   const payload = event.payload;
   if (!payload) return null;
@@ -65,10 +76,51 @@ function StagePayload({ event }: { event: AgentEvent }): React.ReactElement | nu
 
     case 'retrieve':
       return (
-        <p className="text-ink-muted">
-          {payload.queries.length} queries · {payload.candidateCount} candidates fused to{' '}
-          {payload.chunks.length}
-        </p>
+        <div className="space-y-1.5">
+          <ul className="space-y-0.5">
+            {payload.queries.map((query) => (
+              <li key={query} className="text-ink-muted">
+                searched “{query}”
+              </li>
+            ))}
+          </ul>
+          <p className="mono-meta">
+            {payload.candidateCount} candidates from dense + BM25, fused to {payload.chunks.length}
+          </p>
+          <ul className="space-y-0.5">
+            {payload.chunks.map((chunk) => (
+              <li key={chunk.chunkId} className="flex gap-2">
+                <span className="mono-meta w-14 shrink-0 tabular-nums">{chunk.score.toFixed(4)}</span>
+                <span className="truncate text-ink-muted">{where(chunk)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+
+    case 'rerank':
+      return (
+        <div className="space-y-1.5">
+          <p className="mono-meta">
+            {payload.model} · kept {payload.keptCount} of {payload.candidates.length}
+          </p>
+          <ul className="space-y-0.5">
+            {payload.candidates.map((candidate) => (
+              <li key={candidate.chunkId} className="flex gap-2">
+                <span
+                  className="mono-meta w-8 shrink-0"
+                  style={{ color: candidate.kept ? 'var(--moss)' : 'var(--ink-faint)' }}
+                >
+                  {candidate.kept ? 'keep' : 'drop'}
+                </span>
+                <span className="mono-meta w-10 shrink-0 tabular-nums">
+                  {candidate.rerankScore.toFixed(2)}
+                </span>
+                <span className="truncate text-ink-muted">{where(candidate)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       );
 
     case 'grade':
@@ -103,6 +155,14 @@ function StagePayload({ event }: { event: AgentEvent }): React.ReactElement | nu
           <p className="mono-meta">
             threshold {payload.thresholds.minRelevantChunks} chunks ≥ {payload.thresholds.minScore}
           </p>
+          {payload.confidence && (
+            <p className="mono-meta">
+              confidence {payload.confidence.retrievalConfidence.toFixed(2)} · top{' '}
+              {payload.confidence.topScore.toFixed(2)} · {payload.confidence.candidateCount} retrieved →{' '}
+              {payload.confidence.rerankedCount} reranked → {payload.confidence.evidenceCount} evidence ·
+              judged by {payload.confidence.basis}
+            </p>
+          )}
         </div>
       );
 
@@ -120,9 +180,31 @@ function StagePayload({ event }: { event: AgentEvent }): React.ReactElement | nu
 
     case 'synthesise':
       return (
-        <p className="text-ink-muted">
-          {payload.abstained ? 'abstained' : `${payload.characters} characters`}
-        </p>
+        <div className="space-y-1.5">
+          <p className="text-ink-muted">
+            {payload.abstained ? 'abstained' : `${payload.characters} characters`}
+          </p>
+          {payload.question && <p className="text-ink-muted">answered “{payload.question}”</p>}
+          {payload.sources && payload.sources.length > 0 && (
+            <ul className="space-y-1">
+              {payload.sources.map((source) => (
+                <li key={source.chunkId}>
+                  <span className="flex gap-2">
+                    <span className="mono-meta w-6 shrink-0">[{source.n}]</span>
+                    <span className="mono-meta w-10 shrink-0 tabular-nums">{source.score.toFixed(2)}</span>
+                    <span className="truncate text-ink-muted">
+                      {source.external ? `external · ${source.filename}` : where(source)}
+                    </span>
+                  </span>
+                  {/* Present only when the server runs with AGENT_DEBUG. */}
+                  {source.text && (
+                    <span className="mono-meta mt-0.5 block whitespace-pre-wrap pl-8">{source.text}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       );
 
     case 'citations':
@@ -132,6 +214,12 @@ function StagePayload({ event }: { event: AgentEvent }): React.ReactElement | nu
           {payload.rejectedMarkers.length > 0 && (
             <p style={{ color: 'var(--vermillion)' }}>
               dropped unverifiable markers {payload.rejectedMarkers.join(', ')}
+            </p>
+          )}
+          {payload.unsupportedMarkers && payload.unsupportedMarkers.length > 0 && (
+            <p style={{ color: 'var(--vermillion)' }}>
+              dropped markers whose passage did not support the sentence:{' '}
+              {payload.unsupportedMarkers.join(', ')}
             </p>
           )}
         </div>

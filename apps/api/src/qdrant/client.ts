@@ -24,6 +24,7 @@ export interface ChunkPayload {
   ts_end: number | null;
   filename: string;
   image_path: string | null;
+  section: string | null;
   text_preview: string;
   [key: string]: unknown;
 }

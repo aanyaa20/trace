@@ -76,8 +76,18 @@ export function serverRequestedDelayMs(error: unknown): number | null {
   const retryInfo = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(text);
   if (retryInfo?.[1]) return Math.ceil(Number(retryInfo[1]) * 1000);
 
-  const prose = /retry in (\d+(?:\.\d+)?)\s*s/i.exec(text);
-  if (prose?.[1]) return Math.ceil(Number(prose[1]) * 1000);
+  // Gemini says "retry in 31.69s"; Groq says "try again in 18.105s", or
+  // "try again in 1m2.5s" for longer waits. Missing Groq's wording meant its
+  // per-minute limit was retried after a second of jitter instead of the
+  // eighteen it asked for, every retry was refused, and grading gave up.
+  const prose =
+    /(?:retry|try again) in (?:(\d+)\s*m\s*)?(\d+(?:\.\d+)?)\s*s/i.exec(text) ??
+    /(?:retry|try again) in (\d+)\s*m\b/i.exec(text);
+  if (prose) {
+    const minutes = Number(prose[1] ?? 0);
+    const seconds = Number(prose[2] ?? 0);
+    return Math.ceil((minutes * 60 + seconds) * 1000);
+  }
 
   return null;
 }
@@ -91,6 +101,7 @@ export async function withRetry<T>(
   maxRetries: number,
   isRetryable: (error: unknown) => boolean,
   signal?: AbortSignal,
+  maxDelayMs?: number,
 ): Promise<T> {
   let lastError: unknown;
 
@@ -105,6 +116,8 @@ export async function withRetry<T>(
       if (isDailyQuotaExhausted(cause)) break;
 
       const requested = serverRequestedDelayMs(cause);
+      // The caller has somewhere better to go than a long wait.
+      if (maxDelayMs !== undefined && requested !== null && requested > maxDelayMs) break;
       const delay =
         requested !== null
           ? Math.min(requested + 250, MAX_BACKOFF_MS)

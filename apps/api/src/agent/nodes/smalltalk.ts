@@ -25,7 +25,8 @@ export type SmallTalkKind =
   | 'identity'
   | 'capability'
   | 'about_user'
-  | 'acknowledgement';
+  | 'acknowledgement'
+  | 'unintelligible';
 
 /** Small talk is short. A long message containing "hi" is not a greeting, and
  *  this bound is what stops the classifier reaching into real questions. */
@@ -82,9 +83,78 @@ function normalise(query: string): string {
     .trim();
 }
 
+/** Keyboard rows, for spotting a hand dragged along one ("asdf", "qwerty"). */
+const KEYBOARD_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+
+/**
+ * One typed word that no reading of it makes into language. Each rule is
+ * narrow on its own, because a false positive here is the expensive mistake:
+ * a real question answered with "I didn't understand" is never retrieved.
+ *
+ *   - acronyms are exempt (typed in capitals: OCR, RRF, HTML)
+ *   - a filename or anything dotted is exempt (2005.11401v4.pdf)
+ *   - letters-then-digits is a term, not noise (bm25, q01, gpt4, 3d)
+ *   - non-Latin scripts are exempt: this cannot judge Hindi, so it must not try
+ */
+function isNoiseWord(raw: string): boolean {
+  if (/[.\/]/.test(raw)) return false;
+  if (/^\p{Lu}{2,}\d*$/u.test(raw)) return false;
+
+  const word = raw.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  if (word.length === 0) return false;
+  if (!/^[a-z0-9]+$/.test(word)) return false;
+
+  // The same character held down: "jjjjj", "aaaa".
+  if (/(.)\1{3,}/.test(word)) return true;
+
+  // Letters and digits jumbled together rather than a term followed by a
+  // number: "fnj3f3", "a1b2c3".
+  if (/[a-z]\d+[a-z]/.test(word)) return true;
+
+  const letters = word.replace(/\d/g, '');
+
+  // A run along one keyboard row.
+  if (
+    letters.length >= 4 &&
+    KEYBOARD_ROWS.some((row) => row.includes(letters) || letters.includes(row.slice(0, 4)))
+  ) {
+    return true;
+  }
+
+  // Five or more letters with no vowel at all ("sdfgh", "fnjkd"), or a run of
+  // six consonants, which English words essentially never have.
+  if (letters.length >= 5 && !/[aeiouy]/.test(letters)) return true;
+  if (/[^aeiouy\d]{6,}/.test(letters)) return true;
+
+  return false;
+}
+
+/**
+ * A message that is not language: keyboard noise, or nothing but symbols.
+ * Only short messages qualify, and every word in them must be noise — one
+ * real word ("fnj3f3 chunking") and it goes to retrieval like any question.
+ */
+function isUnintelligible(query: string): boolean {
+  const trimmed = query.trim();
+  if (trimmed.length === 0) return false;
+
+  // Nothing but punctuation and symbols: "???", "!!!", "...".
+  if (!/[\p{L}\p{N}]/u.test(trimmed)) return true;
+
+  const words = trimmed.split(/\s+/);
+  if (words.length > 3) return false;
+
+  // A short vowelless fragment ("jkl", "fg") proves nothing alone — it is
+  // never enough to dismiss a message — but beside a word that is clearly
+  // noise it is part of the same mash.
+  const fragment = (word: string): boolean => /^[bcdfghjklmnpqrstvwxz]{1,3}$/.test(word);
+  const noisy = words.filter(isNoiseWord);
+  return noisy.length > 0 && words.every((word) => isNoiseWord(word) || fragment(word));
+}
+
 export function classifySmallTalk(query: string): SmallTalkKind | null {
   const text = normalise(query);
-  if (text.length === 0) return null;
+  if (text.length === 0) return isUnintelligible(query) ? 'unintelligible' : null;
 
   const words = text.split(' ');
   if (words.length > MAX_WORDS) return null;
@@ -99,7 +169,9 @@ export function classifySmallTalk(query: string): SmallTalkKind | null {
   for (const { kind, test } of PATTERNS) {
     if (test.test(text)) return kind;
   }
-  return null;
+
+  // Last, so a drawn-out "hmmmm" or "hiiii" is still read as what it is.
+  return isUnintelligible(query) ? 'unintelligible' : null;
 }
 
 /**
@@ -124,6 +196,8 @@ export function smallTalkReply(kind: SmallTalkKind): string {
       // Short, because the message it answers was. Anything longer reads as
       // filling a silence that did not need filling.
       return "Ask me anything about this corpus whenever you're ready.";
+    case 'unintelligible':
+      return "Sorry, I didn't understand that. Could you ask it as a question about your documents — for example, “What does the handbook say about chunking?”";
     case 'about_user':
       // Honest rather than friendly: it knows the corpus, not the reader.
       return "I don't know anything about you — I only read the documents in this knowledge base, and I have no profile of who is asking. If your name appears in one of those documents, ask me and I'll cite where.";

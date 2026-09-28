@@ -101,9 +101,10 @@ export class OpenAICompatibleProvider implements LLMProvider {
         if (!content) throw new LLMError(this.name, 'model returned an empty completion', true);
         return content;
       },
-      env.LLM_MAX_RETRIES,
+      options.maxRetries ?? env.LLM_MAX_RETRIES,
       (error) => error instanceof LLMError && error.retryable,
       options.signal,
+      options.maxRetryDelayMs,
     );
   }
 
@@ -168,9 +169,10 @@ export class OpenAICompatibleProvider implements LLMProvider {
           },
           options.signal,
         ),
-      env.LLM_MAX_RETRIES,
+      options.maxRetries ?? env.LLM_MAX_RETRIES,
       (error) => error instanceof LLMError && error.retryable,
       options.signal,
+      options.maxRetryDelayMs,
     );
 
     if (!response.body) throw new LLMError(this.name, 'stream had no body', true);

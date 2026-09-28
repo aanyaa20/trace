@@ -102,6 +102,27 @@ function emptyReason(modality: string, filename: string): string {
   }
 }
 
+/**
+ * Postgres text cannot hold U+0000, and some PDFs carry it in their text layer
+ * (the RAG paper's does). One such character fails the whole chunk insert.
+ * Replaced with a space rather than removed, so every character offset — which
+ * citations resolve against — stays exactly where the extractor put it.
+ */
+function storable(text: string): string {
+  return text.includes('\u0000') ? text.replaceAll('\u0000', ' ') : text;
+}
+
+/**
+ * The failure message is stored on the document, so it must itself be
+ * storable. A database error quotes the failed query's parameters — here the
+ * very text containing the NUL — so writing it back verbatim failed too, and
+ * the document sat on "processing" forever with nothing saying why.
+ */
+function storableError(message: string): string {
+  const clean = storable(message).split('\nparams:')[0]!.trim();
+  return clean.length > 500 ? `${clean.slice(0, 500)}…` : clean;
+}
+
 export async function ingestDocument(documentId: string): Promise<void> {
   const [row] = await db.select().from(documents).where(eq(documents.id, documentId));
   if (!row) throw notFound(`document ${documentId}`);
@@ -127,6 +148,9 @@ export async function ingestDocument(documentId: string): Promise<void> {
       mime: document.mime,
       documentId: document.id,
     });
+    for (const block of extracted.blocks) {
+      if (typeof block.text === 'string') block.text = storable(block.text);
+    }
     for (const warning of extracted.warnings) {
       await report(document, 'extracting', warning);
     }
@@ -196,6 +220,7 @@ export async function ingestDocument(documentId: string): Promise<void> {
           ts_end: entry.chunk.tsEnd,
           filename: document.filename,
           image_path: entry.chunk.imagePath,
+          section: entry.chunk.section,
           text_preview: entry.text.slice(0, 240),
         } satisfies ChunkPayload,
       })),
@@ -221,6 +246,7 @@ export async function ingestDocument(documentId: string): Promise<void> {
           tsStart: entry.chunk.tsStart,
           tsEnd: entry.chunk.tsEnd,
           imagePath: entry.chunk.imagePath,
+          section: entry.chunk.section,
           qdrantPointId: entry.id,
         })),
       );
@@ -239,7 +265,7 @@ export async function ingestDocument(documentId: string): Promise<void> {
 
     await report(document, 'completed', `${rows.length} chunks indexed`);
   } catch (cause) {
-    const message = toError(cause).message;
+    const message = storableError(toError(cause).message);
     await db
       .update(documents)
       .set({ status: 'failed', error: message, updatedAt: new Date() })

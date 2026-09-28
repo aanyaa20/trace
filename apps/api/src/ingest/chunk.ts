@@ -13,6 +13,9 @@ export interface PlannedChunk {
   tsStart: number | null;
   tsEnd: number | null;
   imagePath: string | null;
+  /** The heading the chunk sits under — from a markdown-style heading in the
+   *  text, or the section the extractor assigned the block. */
+  section: string | null;
 }
 
 export interface ChunkOptions {
@@ -30,7 +33,12 @@ const SENTENCE_BOUNDARY =
 
 export function splitSentences(text: string): string[] {
   const normalised = text.replace(/\r\n/g, '\n');
-  const parts = normalised.split(SENTENCE_BOUNDARY).filter((part) => part.trim().length > 0);
+  // A heading line ends a sentence even with no full stop before it, so a
+  // section can start its own chunk.
+  const parts = normalised
+    .split(SENTENCE_BOUNDARY)
+    .flatMap((part) => part.split(/\n(?=#{1,6}[ \t])/))
+    .filter((part) => part.trim().length > 0);
   return parts.length > 0 ? parts : normalised.trim().length > 0 ? [normalised] : [];
 }
 
@@ -67,15 +75,56 @@ function overlapTail(sentences: string[], overlapChars: number): string[] {
   return tail.length === sentences.length ? tail.slice(1) : tail;
 }
 
+/** A markdown-style heading line: how HTML pages, .md files, DOCX and PPTX
+ *  extraction mark structure in otherwise plain text. */
+const HEADING_LINE = /^#{1,6}[ \t]+(.+?)[ \t#]*$/gm;
+
+interface Heading {
+  at: number;
+  title: string;
+}
+
+export function headingsOf(text: string): Heading[] {
+  return [...text.matchAll(HEADING_LINE)].map((match) => ({
+    at: match.index ?? 0,
+    title: (match[1] ?? '').trim().slice(0, 200),
+  }));
+}
+
+/**
+ * The section a span starting at `start` belongs to: the last heading at or
+ * before it; failing that, a heading inside the span's first stretch (a chunk
+ * that opens on its own heading); failing that, what the extractor assigned.
+ */
+export function sectionAt(
+  headings: Heading[],
+  start: number,
+  end: number,
+  fallback: string | null,
+): string | null {
+  let current: string | null = null;
+  for (const heading of headings) {
+    if (heading.at <= start) current = heading.title;
+    else break;
+  }
+  if (current) return current;
+  const inside = headings.find((heading) => heading.at > start && heading.at < end);
+  return inside?.title ?? fallback;
+}
+
 interface Emitter {
   push(chunk: Omit<PlannedChunk, 'ordinal'>): void;
 }
+
+/** Below this a section is merged forward rather than cut into a tiny chunk. */
+const MIN_SECTION_CHARS = 200;
 
 function splitBlockText(block: ExtractBlock, options: ChunkOptions, emit: Emitter): void {
   const text = block.text;
   if (text.trim().length === 0) return;
 
   const sentences = splitSentences(text);
+  const headings = headingsOf(text);
   let cursor = 0;
   let buffer: string[] = [];
   let bufferStart = 0;
@@ -96,10 +145,20 @@ function splitBlockText(block: ExtractBlock, options: ChunkOptions, emit: Emitte
       tsStart: block.tsStart,
       tsEnd: block.tsEnd,
       imagePath: block.imagePath,
+      section: sectionAt(headings, bufferStart, bufferStart + joined.length, block.section ?? null),
     });
   };
 
   for (const sentence of sentences) {
+    // Structure first: a heading opens a new chunk rather than landing in the
+    // tail of the previous section, as long as that section has enough text
+    // to stand as a chunk of its own.
+    if (/^#{1,6}[ \t]/.test(sentence.trim()) && bufferLength >= MIN_SECTION_CHARS) {
+      flush();
+      buffer = [];
+      bufferLength = 0;
+    }
+
     // Locate the sentence in the original text so offsets survive the join,
     // which normalises the whitespace between sentences.
     const found = text.indexOf(sentence.trim(), cursor);
@@ -145,6 +204,7 @@ function mergeRun(blocks: ExtractBlock[], options: ChunkOptions, emit: Emitter):
         tsStart: first.tsStart,
         tsEnd: last.tsEnd,
         imagePath: null,
+        section: first.section ?? null,
       });
     }
     buffer = [];
@@ -183,6 +243,7 @@ export function planChunks(blocks: ExtractBlock[], options: ChunkOptions): Plann
         tsStart: block.tsStart,
         tsEnd: block.tsEnd,
         imagePath: block.imagePath,
+        section: block.section ?? null,
       });
       index += 1;
       continue;
@@ -210,6 +271,7 @@ export function planChunks(blocks: ExtractBlock[], options: ChunkOptions): Plann
         tsStart: block.tsStart,
         tsEnd: block.tsEnd,
         imagePath: block.imagePath,
+        section: sectionAt(headingsOf(block.text), 0, block.text.length, block.section ?? null),
       });
     }
 

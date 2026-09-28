@@ -4,7 +4,8 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from ..models import clip, text
+from ..config import settings
+from ..models import clip, rerank, text
 from ..models.caption import caption_image
 from ..pool import run_blocking
 from ..schemas import (
@@ -14,6 +15,8 @@ from ..schemas import (
     EmbedQueryResponse,
     EmbedTextRequest,
     EmbedTextResponse,
+    RerankRequest,
+    RerankResponse,
 )
 
 logger = logging.getLogger("trace.ml.embed")
@@ -72,3 +75,13 @@ async def embed_query(request: EmbedQueryRequest) -> EmbedQueryResponse:
         return await run_blocking(_embed_query, request.query, request.includeClip)
     except RuntimeError as exc:
         raise HTTPException(503, str(exc)) from exc
+
+
+@router.post("/rerank", response_model=RerankResponse)
+async def rerank_passages(request: RerankRequest) -> RerankResponse:
+    """Scores each passage against the query with a cross-encoder."""
+    try:
+        logits, scores = await run_blocking(rerank.rerank, request.query, request.passages)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return RerankResponse(logits=logits, scores=scores, model=settings.rerank_model)

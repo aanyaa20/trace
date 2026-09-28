@@ -23,6 +23,9 @@ export const extractBlockSchema = z.object({
   bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable(),
   /** Path on the shared uploads volume, for image blocks and rendered pages. */
   imagePath: z.string().nullable(),
+  /** The heading this block sits under, or a slide's title, when the
+   *  extractor could tell. Absent from older extractors, hence the default. */
+  section: z.string().nullable().default(null),
 });
 export type ExtractBlock = z.infer<typeof extractBlockSchema>;
 
@@ -80,6 +83,20 @@ export const embedQueryResponseSchema = z.object({
   clip: z.array(z.number()).nullable(),
 });
 export type EmbedQueryResponse = z.infer<typeof embedQueryResponseSchema>;
+
+/** Cross-encoder reranking. Mirrors services/ml/app/schemas.py. */
+export const rerankRequestSchema = z.object({
+  query: z.string().min(1).max(4000),
+  passages: z.array(z.string()).min(1).max(100),
+});
+export type RerankRequest = z.infer<typeof rerankRequestSchema>;
+
+export const rerankResponseSchema = z.object({
+  logits: z.array(z.number()),
+  scores: z.array(z.number().min(0).max(1)),
+  model: z.string(),
+});
+export type RerankResponse = z.infer<typeof rerankResponseSchema>;
 
 export const modelStateSchema = z.enum(['cold', 'loading', 'loaded', 'error']);
 export type ModelState = z.infer<typeof modelStateSchema>;

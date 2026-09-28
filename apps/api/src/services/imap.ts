@@ -53,7 +53,7 @@ export async function assertMailboxHost(host: string): Promise<void> {
 }
 
 function connect(config: MailboxConfig): ImapFlow {
-  return new ImapFlow({
+  const client = new ImapFlow({
     host: config.host,
     port: config.port,
     // Gmail's IMAP endpoint is implicit TLS on 993. Plaintext is never offered.
@@ -64,6 +64,14 @@ function connect(config: MailboxConfig): ImapFlow {
     greetingTimeout: 15_000,
     socketTimeout: 120_000,
   });
+  // ImapFlow also emits failures as an 'error' event — a rejected AUTHENTICATE
+  // closing the socket, for one. With no listener Node treats that as uncaught
+  // and kills the process, which took the whole worker down over one mailbox
+  // with a revoked app password and left every upload waiting in the queue.
+  // The same failure still rejects the awaited call, which is where it is
+  // handled and reported; this only stops it from being fatal.
+  client.on('error', () => {});
+  return client;
 }
 
 /** Maps an IMAP failure to something a user can act on. */

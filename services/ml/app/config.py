@@ -42,6 +42,8 @@ class Settings:
     pdf_ocr_dpi: int
     video_keyframe_interval_sec: int
 
+    rerank_model: str
+
     gemini_api_key: str
     gemini_caption_model: str
     gemini_file_api_fallback: bool
@@ -60,6 +62,7 @@ settings = Settings(
     pdf_ocr_char_threshold=_int("PDF_OCR_CHAR_THRESHOLD", 40),
     pdf_ocr_dpi=_int("PDF_OCR_DPI", 200),
     video_keyframe_interval_sec=_int("VIDEO_KEYFRAME_INTERVAL_SEC", 30),
+    rerank_model=os.getenv("RERANK_MODEL", "Xenova/ms-marco-MiniLM-L-12-v2"),
     gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
     gemini_caption_model=os.getenv("GEMINI_CAPTION_MODEL", "gemini-3.8-flash"),
     gemini_file_api_fallback=_bool("GEMINI_FILE_API_FALLBACK", True),

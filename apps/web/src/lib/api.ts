@@ -39,10 +39,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     credentials: 'include',
     ...init,
+    // Only a JSON body gets the JSON content type. Fastify refuses a request
+    // that declares application/json and then sends nothing, which is exactly
+    // what a bodiless DELETE looked like — every remove button failed on it.
+    // FormData sets its own multipart boundary and must not be overridden.
     headers:
-      init.body instanceof FormData
-        ? (init.headers ?? {})
-        : { 'content-type': 'application/json', ...(init.headers ?? {}) },
+      typeof init.body === 'string'
+        ? { 'content-type': 'application/json', ...(init.headers ?? {}) }
+        : (init.headers ?? {}),
   });
 
   if (!response.ok) {

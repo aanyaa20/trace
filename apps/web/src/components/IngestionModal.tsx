@@ -160,6 +160,15 @@ export function IngestionModal({
                 >
                   {STAGE_LABEL[row.stage]}
                 </span>
+                {/* The same figure the library row shows, so the two views of
+                    one upload never disagree. Only while it is actually moving:
+                    0% beside "waiting its turn" reads as stuck, and a finished
+                    row has its own label. */}
+                {!row.done && !row.failed && row.stage !== 'queued' && (
+                  <span className="mono-meta w-9 shrink-0 text-right tabular-nums">
+                    {Math.round(row.progress * 100)}%
+                  </span>
+                )}
               </div>
 
               {/* The bar is the only thing on screen that says how much longer,

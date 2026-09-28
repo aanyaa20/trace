@@ -38,6 +38,10 @@ export function MailboxPanel({
   const [open, setOpen] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [email, setEmail] = useState('');
+  // Chrome ignores autocomplete="off" on an email + password pair and fills
+  // in the saved trace login. It never autofills a read-only field, so both
+  // start locked and unlock on the first focus — before any typing happens.
+  const [unlocked, setUnlocked] = useState(false);
   const [appPassword, setAppPassword] = useState('');
   const [host, setHost] = useState('imap.gmail.com');
   const [mailbox, setMailbox] = useState('INBOX');
@@ -192,8 +196,16 @@ export function MailboxPanel({
           </p>
 
           <div className="mt-3 space-y-px">
+            {/* These are another account's credentials, not trace's. Without
+                the hints below the browser takes this for the trace sign-in
+                form and fills in the saved trace login — which the mail
+                server then rejects. */}
             <input
               type="email"
+              name="mailbox-address"
+              readOnly={!unlocked}
+              onFocus={() => setUnlocked(true)}
+              autoComplete="off"
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -202,6 +214,10 @@ export function MailboxPanel({
             />
             <input
               type="password"
+              name="mailbox-app-password"
+              readOnly={!unlocked}
+              onFocus={() => setUnlocked(true)}
+              autoComplete="new-password"
               required
               value={appPassword}
               onChange={(event) => setAppPassword(event.target.value)}

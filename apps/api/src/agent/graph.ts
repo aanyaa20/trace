@@ -3,9 +3,10 @@ import { env } from '../env.js';
 import { llm, llmFast } from '../llm/index.js';
 import { AgentEventBus } from './events.js';
 import { citations } from './citations.js';
-import { analyse, searchQuery } from './nodes/analyse.js';
+import { analyse, keywordQuery, searchQuery } from './nodes/analyse.js';
 import { classifySmallTalk, smallTalkReply } from './nodes/smalltalk.js';
 import { grade } from './nodes/grade.js';
+import { rerank } from './nodes/rerank.js';
 import { retrieve } from './nodes/retrieve.js';
 import { sufficiency } from './nodes/sufficiency.js';
 import { synthesise } from './nodes/synthesise.js';
@@ -43,13 +44,28 @@ export interface RunResult {
 }
 
 /**
- * Rewrites the plan for another pass. Reusing the same queries would retrieve
- * the same chunks, so a retry that cannot rewrite is a retry worth skipping.
+ * The plan for another pass. Reusing the same queries would retrieve the same
+ * chunks, so each retry must search differently: first any rewrite not yet
+ * tried, then keyword-only forms of the question and its rewrites — the
+ * entities, numbers and terms with the connective words stripped, which is
+ * what BM25 matches best when the phrasing itself was the problem.
  */
-function nextQueries(state: AgentState): string[] {
-  const rewrites = state.analysis?.rewrites ?? [];
-  const unused = rewrites.filter((rewrite) => !state.queries.includes(rewrite));
-  return unused.length > 0 ? unused : [searchQuery(state), ...rewrites].slice(0, 3);
+export function nextQueries(state: AgentState): string[] {
+  const tried = new Set(state.tried.map((query) => query.toLowerCase()));
+  const fresh = (query: string): boolean => query.trim().length > 0 && !tried.has(query.toLowerCase());
+
+  const rewrites = (state.analysis?.rewrites ?? []).filter(fresh);
+  if (rewrites.length > 0) return rewrites;
+
+  const keywords = [searchQuery(state), ...(state.analysis?.rewrites ?? [])]
+    .map(keywordQuery)
+    .filter(fresh);
+  const unique = [...new Set(keywords)];
+  if (unique.length > 0) return unique.slice(0, 3);
+
+  // Nothing new left to ask. The same queries again would be wasted work, but
+  // the loop's shape is kept; the gate will abstain after this pass.
+  return [searchQuery(state)];
 }
 
 /**
@@ -78,7 +94,9 @@ async function runAgentic(start: AgentState, ctx: AgentContext): Promise<AgentSt
   let state = await analyse(start, ctx);
 
   for (;;) {
+    state = { ...state, tried: [...state.tried, ...state.queries] };
     state = await retrieve(state, ctx);
+    state = await rerank(state, ctx);
     state = await grade(state, ctx);
     state = await sufficiency(state, ctx);
 

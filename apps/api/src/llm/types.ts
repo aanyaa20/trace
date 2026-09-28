@@ -6,6 +6,11 @@ export interface GenerateOptions {
   maxOutputTokens?: number;
   /** Aborts the upstream request when the client disconnects mid-stream. */
   signal?: AbortSignal;
+  /** Overrides LLM_MAX_RETRIES for this call. */
+  maxRetries?: number;
+  /** Give up instead of waiting when the provider asks for a longer pause
+   *  than this. For calls with a local fallback, waiting is wasted time. */
+  maxRetryDelayMs?: number;
 }
 
 export interface LLMProvider {

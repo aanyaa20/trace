@@ -21,6 +21,8 @@ export const citationSchema = z.object({
   tsEnd: z.number().nonnegative().nullable(),
   imagePath: z.string().nullable(),
   snippet: z.string(),
+  /** Heading or slide title the passage sits under, when known. */
+  section: z.string().nullable().default(null),
   /** True for web-search fallback results, which are not part of the corpus. */
   external: z.boolean().default(false),
   externalUrl: z.string().url().nullable().default(null),

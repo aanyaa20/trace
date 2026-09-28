@@ -25,9 +25,33 @@ export function modalityForMime(mime: string): Modality {
   return match[1];
 }
 
+/** Most filesystems cap a name at 255 bytes; the stored name also carries a
+ *  37-byte document-id prefix, so the part kept from the user stops well short. */
+const MAX_FILENAME_BYTES = 200;
+
+/** Cuts to a byte budget without splitting a character in half. */
+function truncateBytes(value: string, max: number): string {
+  let bytes = 0;
+  let out = '';
+  for (const char of value) {
+    bytes += Buffer.byteLength(char);
+    if (bytes > max) break;
+    out += char;
+  }
+  return out;
+}
+
 /** Strips directory components and anything that could escape the upload root. */
 export function safeFilename(filename: string): string {
-  const base = path.basename(filename).replace(/[^\w.\- ]+/g, '_').slice(0, 180);
+  // Letters, marks and digits in any script survive — `\w` alone is ASCII-only
+  // in JavaScript, which turned every Hindi or Chinese filename into a row of
+  // underscores. Marks (\p{M}) matter for Devanagari: the vowel signs are
+  // combining marks, and dropping them breaks every word.
+  const cleaned = path
+    .basename(filename)
+    .normalize('NFC')
+    .replace(/[^\p{L}\p{M}\p{N}_.\- ]+/gu, '_');
+  const base = truncateBytes(cleaned, MAX_FILENAME_BYTES);
   return base.length > 0 ? base : 'upload';
 }
 

@@ -154,6 +154,8 @@ export const chunks = pgTable(
     tsStart: real('ts_start'),
     tsEnd: real('ts_end'),
     imagePath: text('image_path'),
+    /** The heading the chunk sits under, or the slide title, when known. */
+    section: text('section'),
     /** Qdrant accepts only uuid or unsigned int ids; this mirrors chunks.id. */
     qdrantPointId: uuid('qdrant_point_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

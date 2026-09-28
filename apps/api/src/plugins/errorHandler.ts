@@ -5,6 +5,7 @@ import { AppError, isAppError } from '../errors.js';
 interface FastifyLikeError {
   code?: string;
   message?: string;
+  statusCode?: number;
 }
 
 function asAppError(error: unknown): AppError {
@@ -20,6 +21,22 @@ function asAppError(error: unknown): AppError {
   }
   if (candidate?.code === 'FST_ERR_VALIDATION') {
     return new AppError(400, 'validation_failed', candidate.message ?? 'invalid request');
+  }
+  // Any other framework error that already carries a client status — a
+  // malformed or empty JSON body, an unsupported media type — is the client
+  // being told no, not the server breaking. Reporting it as a 500 hid the
+  // real cause behind "unhandled server error".
+  if (
+    typeof candidate?.statusCode === 'number' &&
+    candidate.statusCode >= 400 &&
+    candidate.statusCode < 500 &&
+    candidate.code?.startsWith('FST_')
+  ) {
+    return new AppError(
+      candidate.statusCode,
+      'bad_request',
+      candidate.message ?? 'invalid request',
+    );
   }
 
   return new AppError(500, 'internal_error', 'unhandled server error');

@@ -1,14 +1,26 @@
 import { z } from 'zod';
 import type { ChunkGrade, RetrievedChunk } from '@trace/contracts';
+import { env } from '../../env.js';
 import { toError } from '../../errors.js';
 import type { AgentContext, AgentState } from '../state.js';
+import { searchQuery } from './analyse.js';
 
 // Several chunks per call rather than one each: the free tier is rate limited
 // per request, not per token, and the quota is five requests per minute for
 // this model. At four chunks per call a single grading pass consumed most of
 // a minute's budget; twelve fits a full candidate set into one or two calls.
 const BATCH_SIZE = 12;
-const MAX_CHARS_PER_CHUNK = 1200;
+// The reranker has already put the most relevant passages first; the grader
+// needs enough of each to judge it, not all of it. Fewer tokens per pass is
+// what fits a free tier's tokens-per-minute budget.
+const MAX_CHARS_PER_CHUNK = 800;
+
+/**
+ * Grading has a local fallback (the reranker), so it does not wait out a long
+ * rate-limit pause: one quick retry, then the fallback. Waiting four times
+ * sixty seconds only to fall back anyway made a single question take minutes.
+ */
+const FAIL_FAST = { maxRetries: 1, maxRetryDelayMs: 20_000 } as const;
 
 const batchGradeSchema = z.object({
   grades: z.array(
@@ -57,6 +69,7 @@ async function gradeBatch(
     system: SYSTEM,
     temperature: 0,
     signal: ctx.signal,
+    ...FAIL_FAST,
   });
 
   const grades: ChunkGrade[] = [];
@@ -75,11 +88,44 @@ async function gradeBatch(
 }
 
 /**
- * Grades every candidate. A batch that fails is dropped rather than kept:
- * the reference implementation keeps ungraded chunks "to be safe", which
- * biases the system toward answering exactly when its judgement is least
- * reliable. Dropping biases toward abstention instead, and the failure is
- * visible in the trace either way.
+ * The reranker standing in for the grader: a candidate is evidence when its
+ * cross-encoder score clears RERANK_FALLBACK_MIN_SCORE. Only ever applied to
+ * chunks the LLM did not grade — a verdict from the grader is never overruled.
+ */
+export function rerankVerdicts(
+  chunks: RetrievedChunk[],
+  minScore: number,
+): { kept: RetrievedChunk[]; grades: ChunkGrade[] } {
+  const kept: RetrievedChunk[] = [];
+  const grades: ChunkGrade[] = [];
+  for (const chunk of chunks) {
+    if (chunk.rerankScore === null) continue;
+    const relevant = chunk.rerankScore >= minScore;
+    grades.push({
+      chunkId: chunk.chunkId,
+      relevant,
+      score: chunk.rerankScore,
+      reason: relevant
+        ? 'Judged relevant by the local reranker (the LLM grader was unavailable).'
+        : 'Scored too low by the local reranker (the LLM grader was unavailable).',
+    });
+    if (relevant) kept.push({ ...chunk, score: chunk.rerankScore, gradedBy: 'rerank' });
+  }
+  return { kept, grades };
+}
+
+/**
+ * Grades the reranked candidates against the resolved question.
+ *
+ * A batch the LLM fails to grade is not simply dropped any more. Dropping it
+ * made a per-minute rate limit indistinguishable from "the corpus has no
+ * answer", and the loop refused questions its own retrieval had answered.
+ * Instead the cross-encoder's score — a genuine relevance judgement, made
+ * locally — decides for those chunks, under its own, separately calibrated
+ * threshold. Only when neither judge is available is nothing kept, and then
+ * the reply says the service failed, not the documents.
+ *
+ * GRADE_WITH_LLM=false skips the LLM entirely and lets the reranker decide.
  */
 export async function grade(state: AgentState, ctx: AgentContext): Promise<AgentState> {
   const stage = ctx.bus.begin('grade', state.iteration);
@@ -89,35 +135,58 @@ export async function grade(state: AgentState, ctx: AgentContext): Promise<Agent
     return state;
   }
 
+  const query = searchQuery(state);
   const batches: RetrievedChunk[][] = [];
-  for (let i = 0; i < state.candidates.length; i += BATCH_SIZE) {
-    batches.push(state.candidates.slice(i, i + BATCH_SIZE));
+  if (env.GRADE_WITH_LLM) {
+    for (let i = 0; i < state.candidates.length; i += BATCH_SIZE) {
+      batches.push(state.candidates.slice(i, i + BATCH_SIZE));
+    }
   }
 
-  const settled = await Promise.allSettled(
-    batches.map((batch) => gradeBatch(state.userQuery, batch, ctx)),
-  );
+  const settled = await Promise.allSettled(batches.map((batch) => gradeBatch(query, batch, ctx)));
 
   const grades: ChunkGrade[] = [];
   const failures: string[] = [];
-  for (const outcome of settled) {
+  const ungraded: RetrievedChunk[] = env.GRADE_WITH_LLM ? [] : [...state.candidates];
+  settled.forEach((outcome, index) => {
     if (outcome.status === 'fulfilled') grades.push(...outcome.value);
-    else failures.push(toError(outcome.reason).message);
-  }
+    else {
+      failures.push(toError(outcome.reason).message);
+      ungraded.push(...(batches[index] ?? []));
+    }
+  });
 
   const byId = new Map(grades.map((entry) => [entry.chunkId, entry]));
-  const keptNow = state.candidates
+  const keptByLlm = state.candidates
     .filter((chunk) => byId.get(chunk.chunkId)?.relevant === true)
-    .map((chunk) => ({ ...chunk, score: byId.get(chunk.chunkId)?.score ?? chunk.score }));
+    .map((chunk) => ({
+      ...chunk,
+      score: byId.get(chunk.chunkId)?.score ?? chunk.score,
+      gradedBy: 'llm' as const,
+    }));
 
-  const relevant = [...state.relevant, ...keptNow].sort((a, b) => b.score - a.score);
-  const allGrades = [...state.grades, ...grades];
+  const fallback = rerankVerdicts(ungraded, env.RERANK_FALLBACK_MIN_SCORE);
 
-  if (failures.length === batches.length) {
-    stage.fail(`every grading batch failed: ${failures[0] ?? 'unknown error'}`);
+  const relevant = [...state.relevant, ...keptByLlm, ...fallback.kept].sort(
+    (a, b) => b.score - a.score,
+  );
+  const allGrades = [...state.grades, ...grades, ...fallback.grades];
+
+  const llmAllFailed = batches.length > 0 && failures.length === batches.length;
+  if (llmAllFailed && fallback.grades.length === 0) {
+    stage.fail(`every grading batch failed and no reranker scores to fall back on: ${failures[0] ?? 'unknown error'}`);
   } else {
-    stage.complete({ stage: 'grade', grades, keptCount: relevant.length });
+    stage.complete({ stage: 'grade', grades: [...grades, ...fallback.grades], keptCount: relevant.length });
   }
 
-  return { ...state, grades: allGrades, relevant };
+  // "Graded" now means either judge produced a verdict. The service-failure
+  // reply is reserved for runs where neither could.
+  const judged = grades.length > 0 || fallback.grades.length > 0;
+  return {
+    ...state,
+    grades: allGrades,
+    relevant,
+    gradedOk: state.gradedOk || judged,
+    gradeFailed: state.gradeFailed || (batches.length > 0 && failures.length > 0 && !judged),
+  };
 }

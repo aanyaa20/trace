@@ -200,6 +200,62 @@ word geometry, so a citation is marked at the page and span level rather than
 drawn as a box over the paragraph. The overlay component exists and takes
 rects; nothing feeds it yet. See `HighlightLayer.tsx`.
 
+## How an answer is produced
+
+Agentic mode, in order. Every stage appears in the trace drawer with its real
+inputs and scores.
+
+1. **Small talk and noise** are answered without retrieval ("hi", "fnj3f3").
+2. **Analyse.** The fast model states the intent (definition, comparison,
+   extraction, …), resolves a follow-up against earlier turns ("why is it
+   useful?" → "why is RAG useful?"), and writes up to three rewrites that keep
+   names, numbers, codes and section numbers verbatim.
+3. **Retrieve.** Every query runs dense (bge-small) and BM25 search in one
+   Qdrant batch; the two are merged by weighted reciprocal-rank fusion
+   (`HYBRID_DENSE_WEIGHT`, `HYBRID_SPARSE_WEIGHT`). A page or slide named in
+   the question ("what does slide 3 say?") is also looked up by metadata. A
+   modality hint adds a filtered search; it never removes the open one.
+4. **Rerank.** A local cross-encoder (`RERANK_MODEL`, MiniLM-L-12) rescores
+   the `RETRIEVAL_CANDIDATES` fused hits and keeps `RERANK_TOP_K`. The best
+   `RERANK_MIN_KEEP` always go on, so a cross-encoder blind spot cannot hide an
+   answer.
+5. **Grade.** The fast model judges the reranked few against the resolved
+   question. If it is rate-limited, the reranker's scores stand in for it
+   under their own threshold (`RERANK_FALLBACK_MIN_SCORE`) instead of the
+   question being refused.
+6. **Sufficiency.** Deterministic. Answer when enough strong evidence exists:
+   two passages, or one that both judges rate highly
+   (`SUFFICIENCY_SINGLE_SOURCE_SCORE`), or one retrieved at the page the
+   question named. Otherwise retry with queries not yet tried — unused
+   rewrites, then keyword-only forms — and only then abstain. The decision
+   records a retrieval confidence computed from the actual scores.
+7. **Synthesise** from at most `SYNTHESIS_MAX_SOURCES` passages. The prompt
+   forbids invented locations, requires "the documents do not provide it" for
+   a missing detail, flags conflicting sources, and labels anything from
+   outside the corpus.
+8. **Citations.** Every marker must point at a supplied source, and every
+   cited sentence is scored against its passage by the cross-encoder; below
+   `CITATION_MIN_SUPPORT` the citation is dropped, and a sentence left with no
+   support is removed. An answer with nothing left becomes an abstention.
+
+Set `AGENT_DEBUG=true` to store the exact text of each synthesis source in the
+trace (development only — it copies passage text into every stored trace).
+
+### What ingestion preserves
+
+| Source | Locator on each chunk |
+|---|---|
+| PDF | page, character span, and the heading in effect on that page |
+| DOCX | the heading section; tables kept as tables |
+| PPTX | slide number and slide title |
+| CSV / TSV / XLSX | header-carrying row slices, plus a statistics block computed in code (count, sum, mean, median, min, max, top/bottom 3) |
+| Web page | page title and headings; table rows kept as rows |
+| Audio / video | start and end timestamp |
+| Image | OCR text, the image itself, a caption when Gemini is configured |
+
+DOCX, PPTX and XLSX are parsed locally. Only legacy `.doc`/`.ppt` still fall
+back to the Gemini File API.
+
 ## Connecting a mailbox
 
 A knowledge base can keep reading an IMAP mailbox, so the corpus grows without
@@ -328,13 +384,20 @@ install Vite's native rolldown binary.
 ```bash
 pnpm install                       # host-side, for editor support and typecheck
 pnpm typecheck                     # all packages
-pnpm --filter @trace/api test      # 48 unit tests; reads apps/api/.env.test,
+pnpm --filter @trace/api test      # 97 unit tests; reads apps/api/.env.test,
                                    # so it needs nothing from your environment
+
+# ML extractor tests (standard library unittest, run inside the image)
+docker compose cp services/ml/tests ml:/srv/tests
+docker compose exec -w /srv ml python -m unittest discover -s /srv/tests -t /srv
 pnpm --filter @trace/contracts build   # then see the stale-dist note below
 
 # Evaluation. The retrieval stage costs no LLM quota; the answer stage does.
 docker compose exec api pnpm --filter @trace/api eval retrieval
 docker compose exec api pnpm --filter @trace/api eval answer --mode both
+# The 34-question RAG benchmark (retrieval, grounding, citation, refusal)
+docker compose exec api pnpm --filter @trace/api eval answer \
+  --dataset /app/eval/datasets/rag-corpus.jsonl --kb <your kb id> --mode both
 
 pnpm db:generate                   # after editing src/db/schema.ts
 pnpm db:migrate                    # applied automatically on api boot

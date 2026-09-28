@@ -57,13 +57,26 @@ detail retrieves the wrong documents.`;
 Produce a search plan.
 
 modalityHints: include only modalities the question explicitly points at, for
-example "the slide" implies image, "the recording" implies audio or video, "the
-paper" implies pdf. Use an empty array when the question implies nothing, which
+example "the photo" or "the diagram" implies image, "the recording" implies
+audio or video, "the paper" implies pdf. A slide may be a presentation (text)
+or a photographed slide (image), so for "slide" use both or neither. Use an empty array when the question implies nothing, which
 is the common case. Never guess a modality just to fill the field.
 
 rewrites: two or three alternative phrasings that would match the wording a
 document is likely to use. Prefer domain vocabulary over the user's casual
 phrasing. Do not include the original question.
+- Keep every name, number, code, equation, filename, section or page number
+  and quoted phrase from the question exactly as written. Never paraphrase or
+  "correct" them: "TB-2048" stays "TB-2048", "section 3.2" stays "section 3.2".
+- Make at least one rewrite a short keyword form (the key terms only, e.g.
+  "RAG generator role"), and at least one that names the concept the answer
+  would describe (e.g. "generation component produces the final answer").
+- For a comparison, make one rewrite about each thing being compared, so both
+  sides are retrieved.
+
+intent: one short phrase naming the task — for example "definition",
+"factual lookup", "summary", "comparison", "extraction", "list", "explanation",
+"question generation", "source lookup" — followed by what is being asked.
 
 ${standalone}`;
 }
@@ -85,7 +98,15 @@ export async function analyse(state: AgentState, ctx: AgentContext): Promise<Age
       prompt(state.userQuery, state.history),
       queryAnalysisSchema,
       SHAPE,
-      { system: SYSTEM, temperature: 0.1, signal: ctx.signal },
+      {
+        system: SYSTEM,
+        temperature: 0.1,
+        signal: ctx.signal,
+        // Optional stage: on failure retrieval runs on the user's own words,
+        // so a long rate-limit pause is not worth waiting out.
+        maxRetries: 1,
+        maxRetryDelayMs: 20_000,
+      },
     );
 
     stage.complete({ stage: 'analyse', analysis });
@@ -112,4 +133,34 @@ export async function analyse(state: AgentState, ctx: AgentContext): Promise<Age
 export function searchQuery(state: AgentState, analysis = state.analysis): string {
   const resolved = analysis?.standaloneQuery?.trim();
   return resolved && resolved.length > 0 ? resolved : state.userQuery;
+}
+
+/** Words that carry no retrieval signal on their own. */
+const STOPWORDS = new Set(
+  (
+    'a an the of in on at to for from by with about into over under and or but not no is are was were be been ' +
+    'being do does did doing have has had having what which who whom whose when where why how this that these ' +
+    'those it its they them their there here i me my we our you your he she his her can could should would will ' +
+    'shall may might must please tell explain describe give show say says said according document documents ' +
+    'file files paper corpus mention mentioned role purpose'
+  ).split(' '),
+);
+
+/**
+ * The question reduced to its content terms, for a keyword-heavy retry.
+ *
+ * Deterministic, and conservative about what it keeps: anything containing a
+ * digit, an uppercase letter after the first, a hyphen, a dot or a slash is
+ * kept verbatim — "TB-2048", "3.2", "BERT", "2005.11401v4.pdf" — because those
+ * are exactly the tokens a rewrite must never paraphrase. Only lowercase
+ * function words are dropped.
+ */
+export function keywordQuery(text: string): string {
+  const tokens = text.split(/\s+/).map((token) => token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''));
+  const kept = tokens.filter((token) => {
+    if (token.length === 0) return false;
+    if (/[\d\-./]/.test(token) || /\p{Lu}/u.test(token.slice(1))) return true;
+    return !STOPWORDS.has(token.toLowerCase());
+  });
+  return kept.join(' ');
 }
