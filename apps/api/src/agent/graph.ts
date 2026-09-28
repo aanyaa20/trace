@@ -10,6 +10,7 @@ import { rerank } from './nodes/rerank.js';
 import { retrieve } from './nodes/retrieve.js';
 import { sufficiency } from './nodes/sufficiency.js';
 import { synthesise } from './nodes/synthesise.js';
+import { visualCheck } from './nodes/visualCheck.js';
 import { webSearch } from './nodes/webSearch.js';
 import {
   initialState,
@@ -108,6 +109,15 @@ async function runAgentic(start: AgentState, ctx: AgentContext): Promise<AgentSt
       if (state.iteration >= env.AGENT_MAX_ITERATIONS) break;
       state = { ...state, iteration: state.iteration + 1, queries: nextQueries(state) };
       continue;
+    }
+
+    // Out of retries. Before going outside the corpus or giving up on it,
+    // look at its pictures: the answer may be in a chart or photo that text
+    // retrieval reached but could not read.
+    if (!state.visualChecked) {
+      state = await visualCheck(state, ctx);
+      state = await sufficiency(state, ctx);
+      if (state.decision === 'answer') break;
     }
 
     if (state.decision === 'web_fallback') {

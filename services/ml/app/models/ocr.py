@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from rapidocr_onnxruntime import RapidOCR
 
+    from ..extractors.layout import Line
+
 
 # RapidOCR ships the Chinese PP-OCRv4 recogniser by default. It reads English
 # glyphs correctly but drops the spaces between words — Chinese does not use
@@ -69,18 +71,41 @@ registry.register(ocr_model)  # type: ignore[arg-type]
 _ocr_lock = threading.Lock()
 
 
-def read_text(image_path: str) -> str:
-    """Returns recognised text in reading order, or an empty string when the
-    page carries no legible text."""
+def read_lines(image_path: str) -> list["Line"]:
+    """Every recognised line with its box, in pixels of the image as stored.
+
+    The boxes are the part of OCR that says which label a number belongs to;
+    layout.py turns them into regions, charts and tables."""
+    from ..extractors.layout import Line
+
     engine = ocr_model.get()
 
     with _ocr_lock:
         result, _elapsed = engine(image_path)
 
     if not result:
-        return ""
+        return []
 
-    # RapidOCR yields [box, text, confidence] per detected line, already sorted
-    # top-to-bottom by the detector.
-    lines = [str(entry[1]).strip() for entry in result if len(entry) > 1 and entry[1]]
-    return "\n".join(line for line in lines if line)
+    # RapidOCR yields [box, text, confidence] per detected line; the box is
+    # four corner points, not always axis-aligned, so its extent is taken.
+    lines: list[Line] = []
+    for entry in result:
+        if len(entry) < 2 or not entry[1] or not str(entry[1]).strip():
+            continue
+        xs = [float(point[0]) for point in entry[0]]
+        ys = [float(point[1]) for point in entry[0]]
+        lines.append(Line(str(entry[1]).strip(), min(xs), min(ys), max(xs), max(ys)))
+    return lines
+
+
+def read_text(image_path: str) -> str:
+    """Returns recognised text in reading order, or an empty string when the
+    page carries no legible text. Reading order comes from the layout, so a
+    two-column page reads column by column and a chart reads as its data
+    rather than as the order its labels happen to sit top to bottom."""
+    from ..extractors import layout
+
+    lines = read_lines(image_path)
+    if not lines:
+        return ""
+    return layout.reading_order_text(layout.analyse(lines))

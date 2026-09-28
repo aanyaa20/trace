@@ -17,7 +17,7 @@ export function clock(seconds: number): string {
  */
 export function locationOf(citation: Citation, sectionChars = 40): string {
   const where = pointOf(citation);
-  const section = citation.section?.trim();
+  const section = citation.region && citation.region.type !== 'text' ? undefined : citation.section?.trim();
   // A slide's section is its title, already implied by the slide number when
   // the title is just "Slide N"; anything else is worth naming.
   if (!section || /^slide \d+$/i.test(section)) return where;
@@ -30,6 +30,15 @@ function isSlides(citation: Citation): boolean {
 }
 
 function pointOf(citation: Citation): string {
+  // A chart or table is named for what it is: "28.9 — Market Size chart" is
+  // where a reader looks, and a region id is not.
+  const region = citation.region;
+  if (region && region.type !== 'text') {
+    const name = region.title ? `${region.title} ${region.type}` : region.type;
+    return citation.page !== null
+      ? `${isSlides(citation) ? 'Slide' : 'Page'} ${citation.page} · ${name}`
+      : name.charAt(0).toUpperCase() + name.slice(1);
+  }
   if (citation.page !== null) return `${isSlides(citation) ? 'Slide' : 'Page'} ${citation.page}`;
   if (citation.tsStart !== null) {
     const end = citation.tsEnd;

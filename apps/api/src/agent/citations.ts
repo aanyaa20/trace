@@ -1,4 +1,4 @@
-import type { Citation } from '@trace/contracts';
+import type { Citation, VisualRegion } from '@trace/contracts';
 import { env } from '../env.js';
 import { toError } from '../errors.js';
 import { logger } from '../logger.js';
@@ -17,6 +17,17 @@ export interface ResolvedCitations {
   /** Markers the model emitted that pointed at no source we supplied. */
   rejectedMarkers: number[];
   answer: string;
+}
+
+/**
+ * What a citation says about the region it points into. A merged run of
+ * paragraphs is still text; only a chart, table, photo or diagram is named,
+ * because "the Market Size chart" is a place a reader can look for and
+ * "text region r1+r2" is not.
+ */
+export function regionOf(visual: VisualRegion | null | undefined): Citation['region'] {
+  if (!visual) return null;
+  return { id: visual.id, type: visual.type, title: visual.title, bbox: visual.bbox };
 }
 
 /**
@@ -61,6 +72,7 @@ export function resolveCitations(state: AgentState): ResolvedCitations {
       section: chunk.section,
       external: chunk.external,
       externalUrl: chunk.externalUrl,
+      region: regionOf(chunk.visual),
     });
   }
 

@@ -8,6 +8,7 @@ video. You never answer the question yourself.`;
 
 const SHAPE = `{
   "intent": "one short sentence describing what the user actually wants",
+  "evidenceType": "text",
   "modalityHints": ["pdf"],
   "rewrites": ["alternative phrasing 1", "alternative phrasing 2"],
   "reasoning": "one sentence on why these rewrites should retrieve better",
@@ -61,6 +62,15 @@ example "the photo" or "the diagram" implies image, "the recording" implies
 audio or video, "the paper" implies pdf. A slide may be a presentation (text)
 or a photographed slide (image), so for "slide" use both or neither. Use an empty array when the question implies nothing, which
 is the common case. Never guess a modality just to fill the field.
+
+evidenceType: the kind of evidence that answers the question. One of:
+"chart" — a value, trend or comparison over years or categories, the kind a
+graph shows ("what was revenue in 2024", "which year was highest", "how much
+did it grow"); "table" — a lookup in rows and columns ("what score did Aanya
+get", "which student ranked first"); "diagram" — the structure or flow in a
+figure; "visual" — what a photo or image depicts; "mixed" — text together
+with a chart, table or image ("compare the chart with the text"); otherwise
+"text".
 
 rewrites: two or three alternative phrasings that would match the wording a
 document is likely to use. Prefer domain vocabulary over the user's casual

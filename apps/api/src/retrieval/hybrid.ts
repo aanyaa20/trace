@@ -1,5 +1,5 @@
 import { eq, inArray } from 'drizzle-orm';
-import type { Modality, RetrievedChunk } from '@trace/contracts';
+import type { Modality, RegionType, RetrievedChunk } from '@trace/contracts';
 import { db } from '../db/client.js';
 import { chunks } from '../db/schema.js';
 import { env } from '../env.js';
@@ -17,6 +17,8 @@ export interface HybridQuery {
   documentId?: string;
   /** Restricts the search to one page or slide number ("what does slide 3 say?"). */
   page?: number;
+  /** Restricts the search to regions of these types: charts, tables, photos. */
+  regionTypes?: RegionType[];
 }
 
 export interface HybridResult {
@@ -87,6 +89,9 @@ export async function hybridSearch(request: HybridQuery): Promise<HybridResult> 
         : []),
       ...(request.documentId ? [{ key: 'document_id', match: { value: request.documentId } }] : []),
       ...(request.page !== undefined ? [{ key: 'page', match: { value: request.page } }] : []),
+      ...(request.regionTypes && request.regionTypes.length > 0
+        ? [{ key: 'region_type', match: { any: request.regionTypes } }]
+        : []),
     ],
   };
 
@@ -164,6 +169,7 @@ export async function hybridSearch(request: HybridQuery): Promise<HybridResult> 
       externalUrl: null,
       rerankScore: null,
       gradedBy: null,
+      visual: row.visual ?? null,
     });
   }
 

@@ -1,6 +1,7 @@
 import { env } from '../../env.js';
 import { toError } from '../../errors.js';
 import { searchQuery } from './analyse.js';
+import { focusWindow } from './grade.js';
 import { evidenceFor, type AgentContext, type AgentState } from '../state.js';
 
 const MAX_CHARS_PER_SOURCE = 1600;
@@ -50,7 +51,9 @@ Rules, in order of importance:
    specific detail — a date, a name, a number, a price, a CEO, an author —
    that the sources do not state, say explicitly that the documents do not
    provide it, even if they discuss the subject at length. Never guess one,
-   and never supply it from memory.
+   and never supply it from memory. What the sources do say about it is
+   still a claim: cite it ("The image shows a robot beside books and a
+   laptop[^1]; the documents do not say what it represents.").
 5. When sources disagree, say that they disagree and cite each side. Never
    silently merge conflicting claims into one.
 6. Do not add facts from your own knowledge. If the user explicitly asks for
@@ -66,9 +69,25 @@ Rules, in order of importance:
    Questions or MCQs you write must be answerable from the sources, and each
    one's answer must be cited.
 9. Write plainly. No preamble, no restating the question, no summary of what
-   you are about to say.`;
+   you are about to say.
+10. Some sources are a CHART or TABLE read from an image, labelled with its
+   type and title. Their rows are the printed values: quote them exactly, with
+   the unit. When you use one, name it in the sentence ("the AI in Education
+   Market Size chart shows…") so the reader knows the figure came from a
+   chart and not from a paragraph. If a source says its values were estimated
+   from the axis, say the figure is approximate. A CHART or TABLE source is
+   never "the text" or "the written information", even though its rows are
+   also given as sentences: those sentences were generated from the chart.
+   If the question compares a chart or table with the written text and no
+   written-text source covers it, say that the written text in the sources
+   does not state these figures, rather than presenting the chart twice.
+11. You may do arithmetic on cited figures — a difference, a total, a
+   percentage change, which value is highest — when the question asks for it.
+   Show the calculation with the figures it uses ("28.9 − 12.1 = 16.8") and
+   cite the source of those figures. Never compute from a figure no source
+   states.`;
 
-function buildContext(state: AgentState): string {
+function buildContext(state: AgentState, question: string): string {
   return evidenceFor(state)
     .map((chunk, index) => {
       const marker = index + 1;
@@ -76,13 +95,24 @@ function buildContext(state: AgentState): string {
       if (chunk.page !== null) {
         locator.push(`${/\.pptx?$/i.test(chunk.filename) ? 'slide' : 'page'} ${chunk.page}`);
       }
-      if (chunk.section) locator.push(`section "${chunk.section}"`);
+      const region = chunk.visual;
+      if (region && region.type !== 'text') {
+        // What the source is, before what it says: a model told "CHART" cites
+        // it as a chart; told nothing, it presents the row as prose.
+        locator.push(
+          `${region.type.toUpperCase()}${region.title ? ` "${region.title}"` : ''}${
+            region.origin === 'vision' ? ', read by a vision model' : ''
+          }`,
+        );
+      } else if (chunk.section) {
+        locator.push(`section "${chunk.section}"`);
+      }
       if (chunk.tsStart !== null) {
         locator.push(`${formatTimestamp(chunk.tsStart)}-${formatTimestamp(chunk.tsEnd ?? chunk.tsStart)}`);
       }
       if (chunk.external) locator.push('EXTERNAL');
 
-      return `[${marker}] (${locator.join(', ')})\n${chunk.text.slice(0, MAX_CHARS_PER_SOURCE)}`;
+      return `[${marker}] (${locator.join(', ')})\n${focusWindow(chunk.text, question, MAX_CHARS_PER_SOURCE)}`;
     })
     .join('\n\n');
 }
@@ -150,7 +180,7 @@ export async function synthesise(input: AgentState, ctx: AgentContext): Promise<
   const prompt = `Question: ${question}
 
 Sources:
-${buildContext(state)}
+${buildContext(state, question)}
 
 Answer the question using only these sources, citing each factual sentence with
 [^n]. If they do not support an answer, say so and cite nothing.`;

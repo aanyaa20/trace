@@ -9,6 +9,7 @@ const STAGE_LABEL: Record<AgentStage, string> = {
   grade: 'grade',
   sufficiency: 'sufficiency',
   web_search: 'web search',
+  visual_check: 'visual check',
   synthesise: 'synthesise',
   citations: 'citations',
 };
@@ -86,6 +87,7 @@ function StagePayload({ event }: { event: AgentEvent }): React.ReactElement | nu
           </ul>
           <p className="mono-meta">
             {payload.candidateCount} candidates from dense + BM25, fused to {payload.chunks.length}
+            {payload.evidenceType && payload.evidenceType !== 'text' && ` · also searched ${payload.evidenceType} regions`}
           </p>
           <ul className="space-y-0.5">
             {payload.chunks.map((chunk) => (
@@ -173,6 +175,33 @@ function StagePayload({ event }: { event: AgentEvent }): React.ReactElement | nu
           {payload.results.map((result) => (
             <p key={result.chunkId} className="mono-meta" style={{ color: 'var(--ochre)' }}>
               external · {result.filename}
+            </p>
+          ))}
+        </div>
+      );
+
+    case 'visual_check':
+      return (
+        <div className="space-y-1">
+          <p className="text-ink-muted">
+            {payload.regionCandidates} chart, table or picture regions searched on their own
+            {payload.visionAvailable ? '' : ' · no vision model was reachable'}
+          </p>
+          {payload.readings.map((reading) => (
+            <p key={reading.chunkId} className="flex gap-2">
+              <span
+                className="mono-meta w-12 shrink-0"
+                style={{ color: reading.found ? 'var(--moss)' : 'var(--ink-faint)' }}
+              >
+                {reading.found ? 'found' : 'not shown'}
+              </span>
+              <span className="text-ink-muted">
+                {reading.regionType && reading.regionType !== 'text'
+                  ? `${reading.regionType}${reading.regionTitle ? ` “${reading.regionTitle}”` : ''} in `
+                  : ''}
+                {reading.filename}
+                {reading.answer ? ` — ${reading.answer}` : ''}
+              </span>
             </p>
           ))}
         </div>

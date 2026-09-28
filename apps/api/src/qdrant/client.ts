@@ -25,6 +25,8 @@ export interface ChunkPayload {
   filename: string;
   image_path: string | null;
   section: string | null;
+  /** chart, table, photo… for a region of an image or scanned page. */
+  region_type?: string | null;
   text_preview: string;
   [key: string]: unknown;
 }

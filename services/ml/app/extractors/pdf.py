@@ -5,7 +5,8 @@ import re
 from pathlib import Path
 
 from ..config import settings
-from ..models.ocr import read_text
+from ..models.ocr import read_lines
+from . import layout
 from ..schemas import ExtractBlock, ExtractResponse
 
 logger = logging.getLogger("trace.ml.pdf")
@@ -62,6 +63,7 @@ def extract_pdf(path: str, document_id: str) -> ExtractResponse:
     """One block per page. A page yielding almost no extractable text is
     treated as scanned, rendered at PDF_OCR_DPI and read with OCR."""
     import fitz
+    from PIL import Image
 
     blocks: list[ExtractBlock] = []
     warnings: list[str] = []
@@ -100,11 +102,11 @@ def extract_pdf(path: str, document_id: str) -> ExtractResponse:
             page.get_pixmap(matrix=fitz.Matrix(zoom, zoom)).save(str(image_path))
 
             try:
-                recognised = read_text(str(image_path))
+                regions = layout.analyse(read_lines(str(image_path)))
             except Exception as exc:
                 warnings.append(f"ocr failed on page {index + 1}: {exc}")
                 logger.warning("ocr failed for %s page %s: %s", document_id, index + 1, exc)
-                recognised = ""
+                regions = []
 
             ocr_pages += 1
             blocks.append(
@@ -112,11 +114,33 @@ def extract_pdf(path: str, document_id: str) -> ExtractResponse:
                     ordinal=index,
                     kind="text",
                     source="ocr",
-                    text=recognised,
+                    text=layout.reading_order_text(regions),
                     page=index + 1,
                     imagePath=str(image_path),
                 )
             )
+            # A chart or table on a scanned page is also indexed on its own,
+            # as records, so a question about one value finds the region that
+            # holds it and the citation can point at where it sits.
+            with Image.open(image_path) as rendered:
+                width, height = rendered.size
+            for number, region in enumerate(regions):
+                if region.kind not in ("chart", "table"):
+                    continue
+                visual = layout.to_visual(region, width, height, number)
+                blocks.append(
+                    ExtractBlock(
+                        ordinal=index,
+                        kind="region",
+                        source="ocr",
+                        text=layout.render(visual),
+                        page=index + 1,
+                        imagePath=str(image_path),
+                        bbox=visual.bbox,
+                        section=visual.title or section,
+                        visual=visual,
+                    )
+                )
 
     if ocr_pages:
         warnings.append(f"{ocr_pages} of {page_count} pages required ocr")

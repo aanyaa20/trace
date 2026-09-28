@@ -5,6 +5,7 @@ import type { ResolvedCitation } from '@trace/contracts';
 import { db } from '../db/client.js';
 import { chunks, documents, knowledgeBases } from '../db/schema.js';
 import { notFound } from '../errors.js';
+import { regionOf } from '../agent/citations.js';
 
 const params = z.object({ id: z.string().uuid() });
 const NEIGHBOURS = 1;
@@ -62,7 +63,14 @@ export default async function citationRoutes(app: FastifyInstance): Promise<void
       section: row.chunk.section,
       external: false,
       externalUrl: null,
-      context: neighbours.map((neighbour) => neighbour.text).join('\n\n'),
+      region: regionOf(row.chunk.visual),
+      // A chart or table is its own context: the regions beside it on the
+      // page are other things, and showing them under its citation would
+      // present them as part of what was cited.
+      context:
+        row.chunk.visual && row.chunk.visual.type !== 'text'
+          ? row.chunk.text
+          : neighbours.map((neighbour) => neighbour.text).join('\n\n'),
       previewUrl,
     };
     return body;

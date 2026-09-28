@@ -70,10 +70,19 @@ async function embedImages(
   const imageChunks = planned.filter((chunk) => chunk.kind === 'image' && chunk.imagePath);
   const result = new Map<number, { clip: number[]; caption: string | null }>();
 
-  for (const batch of chunked(imageChunks, IMAGE_BATCH)) {
+  // An image a vision model already described at extraction needs no second
+  // description: that would be the same model, called twice, for one image.
+  const described = imageChunks.filter((chunk) => chunk.source === 'vision');
+  const undescribed = imageChunks.filter((chunk) => chunk.source !== 'vision');
+  const batches = [
+    ...chunked(described, IMAGE_BATCH).map((batch) => ({ batch, caption: false })),
+    ...chunked(undescribed, IMAGE_BATCH).map((batch) => ({ batch, caption: true })),
+  ];
+
+  for (const { batch, caption } of batches) {
     const response = await mlClient.embedImage({
       paths: batch.map((chunk) => chunk.imagePath!),
-      caption: true,
+      caption,
     });
     batch.forEach((chunk, index) => {
       const clip = response.clip[index];
@@ -200,6 +209,14 @@ export async function ingestDocument(documentId: string): Promise<void> {
       clip: imageVectors.get(chunk.ordinal)?.clip,
     }));
 
+    // A document ingested again replaces its vectors rather than adding to
+    // them. Old points would be dropped at hydration once their rows are
+    // gone, but not before they had taken retrieval slots from live ones.
+    await qdrant.delete(COLLECTION, {
+      wait: true,
+      filter: { must: [{ key: 'document_id', match: { value: document.id } }] },
+    });
+
     await qdrant.upsert(COLLECTION, {
       wait: true,
       points: rows.map((entry) => ({
@@ -221,6 +238,8 @@ export async function ingestDocument(documentId: string): Promise<void> {
           filename: document.filename,
           image_path: entry.chunk.imagePath,
           section: entry.chunk.section,
+          // Filterable, so a question about a chart can search charts.
+          region_type: entry.chunk.visual?.type ?? null,
           text_preview: entry.text.slice(0, 240),
         } satisfies ChunkPayload,
       })),
@@ -247,6 +266,7 @@ export async function ingestDocument(documentId: string): Promise<void> {
           tsEnd: entry.chunk.tsEnd,
           imagePath: entry.chunk.imagePath,
           section: entry.chunk.section,
+          visual: entry.chunk.visual,
           qdrantPointId: entry.id,
         })),
       );

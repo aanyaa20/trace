@@ -83,6 +83,15 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_CAPTION_MODEL: ${GEMINI_CAPTION_MODEL:-gemini-3.8-flash}
       GEMINI_FILE_API_FALLBACK: ${GEMINI_FILE_API_FALLBACK:-true}
+      # Vision: charts, tables and photos read at ingestion, and images looked
+      # at before an abstention. Groq's Qwen first, then Gemini; either key
+      # alone is enough, and with neither the OCR-geometry reading still runs.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_VISION_MODEL: ${GROQ_VISION_MODEL:-qwen/qwen3.8-27b}
+      VISION_PROVIDERS: ${VISION_PROVIDERS:-groq,gemini}
+      GEMINI_VISION_FALLBACK_MODELS: ${GEMINI_VISION_FALLBACK_MODELS:-gemini-2.5-flash}
+      VISION_TIMEOUT_SEC: ${VISION_TIMEOUT_SEC:-30}
+      VISION_STRUCTURE: ${VISION_STRUCTURE:-true}
     ports:
       - "${ML_PORT:-8000}:8000"
     volumes:
@@ -181,6 +190,7 @@ services:
       GRADE_WITH_LLM: ${GRADE_WITH_LLM:-true}
       SYNTHESIS_MAX_SOURCES: ${SYNTHESIS_MAX_SOURCES:-8}
       CITATION_MIN_SUPPORT: ${CITATION_MIN_SUPPORT:-0.02}
+      VISUAL_CHECK_MAX_IMAGES: ${VISUAL_CHECK_MAX_IMAGES:-2}
       AGENT_DEBUG: ${AGENT_DEBUG:-false}
       WEB_SEARCH_PROVIDER: ${WEB_SEARCH_PROVIDER:-duckduckgo}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Citation, Document, ResolvedCitation } from '@trace/contracts';
 import { api } from '../lib/api.js';
-import { HighlightLayer } from './HighlightLayer.js';
+import { HighlightLayer, regionRects } from './HighlightLayer.js';
 
 function stamp(seconds: number): string {
   const total = Math.floor(seconds);
@@ -12,6 +12,7 @@ const SOURCE_LABEL: Record<string, string> = {
   ocr: 'read by OCR',
   asr: 'from the transcript',
   caption: 'from an image caption',
+  vision: 'read by a vision model',
   text: 'embedded text',
 };
 
@@ -146,6 +147,8 @@ function Evidence({
         {citation.charStart !== null && `  ·  ch ${citation.charStart}–${citation.charEnd}`}
         {citation.tsStart !== null &&
           `  ·  ${stamp(citation.tsStart)}–${stamp(citation.tsEnd ?? citation.tsStart)}`}
+        {citation.region && citation.region.type !== 'text' &&
+          `  ·  ${citation.region.type}${citation.region.title ? ` “${citation.region.title}”` : ''}`}
         {`  ·  ${SOURCE_LABEL[citation.source] ?? citation.source}`}
       </p>
 
@@ -446,7 +449,7 @@ export function DocumentReader({
             <figure className="mx-auto animate-lift" style={{ maxWidth: width }}>
               <div className="page-surface relative overflow-hidden rounded-sm">
                 <img alt={doc.filename} className="block w-full" src={api.previewUrl(doc.id)} />
-                <HighlightLayer active={Boolean(citation)} />
+                <HighlightLayer active={Boolean(citation)} rects={regionRects(citation?.region ?? null)} />
               </div>
             </figure>
           )}
@@ -477,7 +480,7 @@ export function DocumentReader({
                         className="block w-full"
                         src={api.previewUrl(doc.id, page)}
                       />
-                      <HighlightLayer active={cited} />
+                      <HighlightLayer active={cited} rects={cited ? regionRects(citation?.region ?? null) : []} />
                     </div>
                     <p className="mono-meta mt-1.5 text-center">page {page}</p>
                   </div>

@@ -16,6 +16,8 @@ const PAYLOAD_INDEXES = [
   { field: 'modality', schema: 'keyword' },
   // "What does slide 3 say?" filters on the page number directly.
   { field: 'page', schema: 'integer' },
+  // "What was the market size in 2024?" also searches charts and tables.
+  { field: 'region_type', schema: 'keyword' },
 ] as const;
 
 /**

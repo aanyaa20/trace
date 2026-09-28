@@ -72,6 +72,96 @@ function Marker({
   );
 }
 
+/**
+ * The answer's layout, from the few Markdown forms synthesis is allowed to
+ * use: paragraphs, bulleted and numbered lists, and pipe tables. The prompt
+ * invites a list or a table when one is asked for ("list all the years"), and
+ * rendering them as running text printed the asterisks and dashes literally.
+ */
+type Block =
+  | { kind: 'p'; text: string }
+  | { kind: 'ul' | 'ol'; items: string[] }
+  | { kind: 'table'; header: string[]; rows: string[][] };
+
+const BULLET = /^\s*[-*•]\s+/;
+const NUMBERED = /^\s*\d+[.)]\s+/;
+
+function cellsOf(line: string): string[] {
+  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+}
+
+export function blocksOf(text: string): Block[] {
+  const blocks: Block[] = [];
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  let paragraph: string[] = [];
+  const flush = (): void => {
+    const joined = paragraph.join(' ').trim();
+    if (joined) blocks.push({ kind: 'p', text: joined });
+    paragraph = [];
+  };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+    if (line.trim() === '') {
+      flush();
+      continue;
+    }
+    if (line.trim().startsWith('|')) {
+      flush();
+      const run: string[][] = [];
+      while (i < lines.length && lines[i]!.trim().startsWith('|')) {
+        // The |---|---| rule under a header carries no content.
+        if (!/^\s*\|?[\s:-]+(\|[\s:-]+)+\|?\s*$/.test(lines[i]!)) run.push(cellsOf(lines[i]!));
+        i += 1;
+      }
+      i -= 1;
+      const [header = [], ...rows] = run;
+      blocks.push({ kind: 'table', header, rows });
+      continue;
+    }
+    const list = BULLET.test(line) ? 'ul' : NUMBERED.test(line) ? 'ol' : null;
+    if (list) {
+      flush();
+      const marker = list === 'ul' ? BULLET : NUMBERED;
+      const last = blocks[blocks.length - 1];
+      const item = line.replace(marker, '');
+      if (last && last.kind === list) last.items.push(item);
+      else blocks.push({ kind: list, items: [item] });
+      continue;
+    }
+    // A heading line reads as a short bold paragraph; the answer is prose,
+    // not a document with its own outline.
+    const heading = line.match(/^\s*#{1,6}\s+(.*)$/);
+    if (heading) {
+      flush();
+      blocks.push({ kind: 'p', text: `**${heading[1]}**` });
+      continue;
+    }
+    const last = blocks[blocks.length - 1];
+    if (paragraph.length === 0 && last && (last.kind === 'ul' || last.kind === 'ol') && /^\s{2,}/.test(line)) {
+      last.items[last.items.length - 1] += ` ${line.trim()}`;
+      continue;
+    }
+    paragraph.push(line.trim());
+  }
+  flush();
+  return blocks;
+}
+
+/** **bold** inside a run of text; everything else is left as typed. */
+function inline(text: string, key: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((part) => part.length > 0);
+  return parts.map((part, index) =>
+    /^\*\*[^*]+\*\*$/.test(part) ? (
+      <strong key={`${key}-${index}`} className="font-semibold">
+        {part.slice(2, -2)}
+      </strong>
+    ) : (
+      part
+    ),
+  );
+}
+
 function renderClaim(
   claim: Claim,
   citations: Citation[],
@@ -91,7 +181,7 @@ function renderClaim(
   let key = 0;
 
   while ((match = pattern.exec(claim.text)) !== null) {
-    if (match.index > cursor) nodes.push(claim.text.slice(cursor, match.index));
+    if (match.index > cursor) nodes.push(...inline(claim.text.slice(cursor, match.index), `t${key}`));
 
     const markers = [...new Set([...match[0].matchAll(MARKER)].map((one) => Number(one[1])))];
     nodes.push(
@@ -111,7 +201,7 @@ function renderClaim(
     cursor = match.index + match[0].length;
   }
 
-  if (cursor < claim.text.length) nodes.push(claim.text.slice(cursor));
+  if (cursor < claim.text.length) nodes.push(...inline(claim.text.slice(cursor), 'tail'));
   return nodes;
 }
 
@@ -171,21 +261,65 @@ export function Answer({
         }
         style={bubble ? undefined : { fontOpticalSizing: 'auto' }}
       >
-        {claimsOf(state.text).map((claim, index) => {
-          const cited = active !== null && claim.markers.includes(active);
-          const faded = active !== null && !cited;
+        {blocksOf(state.text).map((block, blockIndex) => {
+          const claims = (text: string): React.ReactNode =>
+            claimsOf(text).map((claim, index) => {
+              const cited = active !== null && claim.markers.includes(active);
+              const faded = active !== null && !cited;
 
+              return (
+                <span
+                  key={index}
+                  style={{
+                    opacity: faded ? 0.35 : 1,
+                    backgroundColor: cited ? 'var(--highlight)' : 'transparent',
+                    transition: `opacity var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out)`,
+                  }}
+                >
+                  {renderClaim(claim, state.citations, active, onSelectCitation, setActive)}{' '}
+                </span>
+              );
+            });
+          const gap = blockIndex > 0 ? 'mt-3' : '';
+
+          if (block.kind === 'p') {
+            return (
+              <p key={blockIndex} className={gap}>
+                {claims(block.text)}
+              </p>
+            );
+          }
+          if (block.kind === 'table') {
+            return (
+              <div key={blockIndex} className={`answer-table-wrap ${gap}`}>
+                <table className="answer-table">
+                  <thead>
+                    <tr>
+                      {block.header.map((cell, index) => (
+                        <th key={index}>{claims(cell)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.rows.map((row, rowIndex) => (
+                      <tr key={rowIndex}>
+                        {row.map((cell, index) => (
+                          <td key={index}>{claims(cell)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          }
+          const List = block.kind === 'ol' ? 'ol' : 'ul';
           return (
-            <span
-              key={index}
-              style={{
-                opacity: faded ? 0.35 : 1,
-                backgroundColor: cited ? 'var(--highlight)' : 'transparent',
-                transition: `opacity var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out)`,
-              }}
-            >
-              {renderClaim(claim, state.citations, active, onSelectCitation, setActive)}{' '}
-            </span>
+            <List key={blockIndex} className={`answer-list ${block.kind === 'ol' ? 'is-numbered' : ''} ${gap}`}>
+              {block.items.map((item, index) => (
+                <li key={index}>{claims(item)}</li>
+              ))}
+            </List>
           );
         })}
 

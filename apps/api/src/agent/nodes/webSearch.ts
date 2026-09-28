@@ -105,6 +105,7 @@ export async function webSearch(state: AgentState, ctx: AgentContext): Promise<A
         externalUrl: result.url,
       rerankScore: null,
       gradedBy: null,
+      visual: null,
       section: null,
       }));
 

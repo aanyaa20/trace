@@ -3,7 +3,7 @@ import type { ChunkGrade, RetrievedChunk } from '@trace/contracts';
 import { env } from '../../env.js';
 import { toError } from '../../errors.js';
 import type { AgentContext, AgentState } from '../state.js';
-import { searchQuery } from './analyse.js';
+import { keywordQuery, searchQuery } from './analyse.js';
 
 // Several chunks per call rather than one each: the free tier is rate limited
 // per request, not per token, and the quota is five requests per minute for
@@ -12,8 +12,50 @@ import { searchQuery } from './analyse.js';
 const BATCH_SIZE = 12;
 // The reranker has already put the most relevant passages first; the grader
 // needs enough of each to judge it, not all of it. Fewer tokens per pass is
-// what fits a free tier's tokens-per-minute budget.
+// what fits a free tier's tokens-per-minute budget. Which 800 is chosen by
+// focusWindow, not taken from the start.
 const MAX_CHARS_PER_CHUNK = 800;
+
+/** Lowercase content terms of a question, numbers included. */
+function termsOf(query: string): Set<string> {
+  return new Set(
+    keywordQuery(query)
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((term) => term.length > 1),
+  );
+}
+
+/**
+ * The part of a long passage the grader is shown: the window of at most
+ * `max` characters, starting on a line or sentence boundary, that contains
+ * the most of the question's terms.
+ *
+ * Always taking the first 800 characters is how a correct answer was once
+ * refused. An uploaded infographic was one 2,197-character chunk; the market
+ * figures the question asked about sat after character 800, the grader was
+ * told the passage "does not mention 2024", and Folio abstained with the
+ * number in its own index. A passage is judged on the part that could answer.
+ */
+export function focusWindow(text: string, query: string, max = MAX_CHARS_PER_CHUNK): string {
+  if (text.length <= max) return text;
+  const terms = termsOf(query);
+  const starts = [0];
+  for (const match of text.matchAll(/(?:\n|[.!?]\s)/g)) {
+    const at = (match.index ?? 0) + match[0].length;
+    if (at < text.length) starts.push(at);
+  }
+
+  let best = { start: 0, score: -1 };
+  for (const start of starts) {
+    const window = text.slice(start, start + max).toLowerCase();
+    let score = 0;
+    for (const term of terms) if (window.includes(term)) score += 1;
+    if (score > best.score) best = { start, score };
+  }
+  const window = text.slice(best.start, best.start + max);
+  return `${best.start > 0 ? '… ' : ''}${window}${best.start + max < text.length ? ' …' : ''}`;
+}
 
 /**
  * Grading has a local fallback (the reranker), so it does not wait out a long
@@ -41,7 +83,7 @@ const SHAPE = `{"grades":[{"id":0,"relevant":true,"score":0.0,"reason":"one sent
 
 function prompt(query: string, batch: RetrievedChunk[]): string {
   const passages = batch
-    .map((chunk, index) => `[${index}] ${chunk.text.slice(0, MAX_CHARS_PER_CHUNK)}`)
+    .map((chunk, index) => `[${index}] ${focusWindow(chunk.text, query)}`)
     .join('\n\n');
 
   return `Question: ${query}
@@ -51,7 +93,13 @@ ${passages}
 
 For each passage return:
 - relevant: true only if it contains information that would appear in a correct
-  answer to the question, or directly supports such information.
+  answer to the question, or directly supports such information. A
+  description of a picture is relevant to a question about what that picture
+  shows, depicts or represents: what is visibly in it is the evidence an
+  answer can give, even when the passage does not interpret it. When the
+  question compares two things — a chart with the text, one section with
+  another — a passage covering either side is relevant: the comparison is
+  built from both.
 - score: your confidence between 0 and 1.
 - reason: one short sentence explaining the verdict. Say what the passage does
   or does not contain, in your own words. Do not quote or summarise the passage

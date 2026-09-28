@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { blockSourceSchema, modalitySchema } from './common.js';
+import { bboxSchema, blockSourceSchema, modalitySchema, visualRegionSchema } from './common.js';
 
 export const sparseVectorSchema = z.object({
   indices: z.array(z.number().int().nonnegative()),
@@ -14,20 +14,42 @@ export type SparseVector = z.infer<typeof sparseVectorSchema>;
  */
 export const extractBlockSchema = z.object({
   ordinal: z.number().int().nonnegative(),
-  kind: z.enum(['text', 'image']),
+  /** "region" is one region of an image or scanned page (see visual). */
+  kind: z.enum(['text', 'image', 'region']),
   source: blockSourceSchema,
   text: z.string(),
   page: z.number().int().positive().nullable(),
   tsStart: z.number().nonnegative().nullable(),
   tsEnd: z.number().nonnegative().nullable(),
-  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable(),
+  bbox: bboxSchema.nullable(),
   /** Path on the shared uploads volume, for image blocks and rendered pages. */
   imagePath: z.string().nullable(),
   /** The heading this block sits under, or a slide's title, when the
    *  extractor could tell. Absent from older extractors, hence the default. */
   section: z.string().nullable().default(null),
+  /** The region this block is, with its structure, for region blocks. */
+  visual: visualRegionSchema.nullable().default(null),
 });
 export type ExtractBlock = z.infer<typeof extractBlockSchema>;
+
+export const visionAnswerRequestSchema = z.object({
+  path: z.string().min(1),
+  question: z.string().min(1).max(4000),
+  /** The region to look at; the whole image when absent. */
+  bbox: bboxSchema.nullable().optional(),
+});
+export type VisionAnswerRequest = z.infer<typeof visionAnswerRequestSchema>;
+
+export const visionAnswerResponseSchema = z.object({
+  /** False when no vision model is configured or none could be reached, so
+   *  "the image does not show it" is never confused with "nobody looked". */
+  available: z.boolean(),
+  found: z.boolean(),
+  answer: z.string().nullable().default(null),
+  evidence: z.string().nullable().default(null),
+  model: z.string().nullable().default(null),
+});
+export type VisionAnswerResponse = z.infer<typeof visionAnswerResponseSchema>;
 
 export const extractRequestSchema = z.object({
   path: z.string().min(1),

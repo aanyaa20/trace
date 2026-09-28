@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { blockSourceSchema, modalitySchema, retrievalModeSchema } from './common.js';
+import {
+  blockSourceSchema,
+  modalitySchema,
+  regionTypeSchema,
+  retrievalModeSchema,
+  visualRegionSchema,
+} from './common.js';
 import { citationSchema } from './citations.js';
 
 export const agentStageSchema = z.enum([
@@ -13,6 +19,8 @@ export const agentStageSchema = z.enum([
   'grade',
   'sufficiency',
   'web_search',
+  /** Before abstaining: the images retrieval found, looked at directly. */
+  'visual_check',
   'synthesise',
   'citations',
 ]);
@@ -21,8 +29,23 @@ export type AgentStage = z.infer<typeof agentStageSchema>;
 export const agentStatusSchema = z.enum(['started', 'completed', 'failed']);
 export type AgentStatus = z.infer<typeof agentStatusSchema>;
 
+/**
+ * What kind of evidence a question needs. A question about a value in a
+ * given year is answered by a chart; "who scored highest" by a table; "what
+ * does figure 2 show" by looking at the figure. Retrieval searches those
+ * regions as well as the open index when the answer is likely to be in one.
+ */
+export const evidenceTypeSchema = z.enum(['text', 'table', 'chart', 'diagram', 'visual', 'mixed']);
+export type EvidenceType = z.infer<typeof evidenceTypeSchema>;
+
 export const queryAnalysisSchema = z.object({
   intent: z.string(),
+  /**
+   * One of evidenceTypeSchema's values. Kept a string here so a model that
+   * answers "numeric" loses this one field rather than the whole plan; read
+   * it through evidenceTypeOf. Absent from older traces.
+   */
+  evidenceType: z.string().optional(),
   modalityHints: z.array(modalitySchema),
   rewrites: z.array(z.string()).min(1).max(3),
   reasoning: z.string(),
@@ -35,6 +58,12 @@ export const queryAnalysisSchema = z.object({
   standaloneQuery: z.string().optional(),
 });
 export type QueryAnalysis = z.infer<typeof queryAnalysisSchema>;
+
+/** The analysis's evidence type, when it is one of the known values. */
+export function evidenceTypeOf(analysis: QueryAnalysis | null | undefined): EvidenceType | null {
+  const parsed = evidenceTypeSchema.safeParse(analysis?.evidenceType?.trim().toLowerCase());
+  return parsed.success ? parsed.data : null;
+}
 
 /** A chunk travelling through the loop. Score semantics differ per stage:
  *  RRF rank score after retrieve, grader confidence after grade. */
@@ -61,8 +90,22 @@ export const retrievedChunkSchema = z.object({
   /** Who decided this chunk is evidence: the LLM grader, or the reranker
    *  standing in for it when the grader could not be reached. */
   gradedBy: z.enum(['llm', 'rerank']).nullable().default(null),
+  /** The region of an image or scanned page this chunk is, when it is one. */
+  visual: visualRegionSchema.nullable().default(null),
 });
 export type RetrievedChunk = z.infer<typeof retrievedChunkSchema>;
+
+/** One image the visual check looked at, and what it saw. */
+export const visualReadingSchema = z.object({
+  chunkId: z.string().uuid(),
+  filename: z.string(),
+  regionType: regionTypeSchema.nullable(),
+  regionTitle: z.string().nullable(),
+  found: z.boolean(),
+  answer: z.string().nullable(),
+  model: z.string().nullable(),
+});
+export type VisualReading = z.infer<typeof visualReadingSchema>;
 
 export const chunkGradeSchema = z.object({
   chunkId: z.string().uuid(),
@@ -128,6 +171,8 @@ export const agentEventPayloadSchema = z.discriminatedUnion('stage', [
     queries: z.array(z.string()),
     chunks: z.array(retrievedChunkSchema),
     candidateCount: z.number().int().nonnegative(),
+    /** What kind of evidence the question was routed to. */
+    evidenceType: evidenceTypeSchema.optional(),
   }),
   z.object({
     stage: z.literal('rerank'),
@@ -154,6 +199,14 @@ export const agentEventPayloadSchema = z.discriminatedUnion('stage', [
     stage: z.literal('web_search'),
     query: z.string(),
     results: z.array(retrievedChunkSchema),
+  }),
+  z.object({
+    stage: z.literal('visual_check'),
+    /** Visual regions retrieved on their own, before any model looked. */
+    regionCandidates: z.number().int().nonnegative(),
+    readings: z.array(visualReadingSchema),
+    /** False when no vision model could be reached. */
+    visionAvailable: z.boolean(),
   }),
   z.object({
     stage: z.literal('synthesise'),

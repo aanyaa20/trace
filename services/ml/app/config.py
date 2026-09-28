@@ -25,6 +25,12 @@ def _bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _list(name: str, default: str) -> tuple[str, ...]:
+    raw = os.getenv(name)
+    value = default if raw is None or raw.strip() == "" else raw
+    return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
 @dataclass(frozen=True)
 class Settings:
     upload_dir: Path
@@ -48,6 +54,17 @@ class Settings:
     gemini_caption_model: str
     gemini_file_api_fallback: bool
 
+    groq_api_key: str
+    # Tried in order until one answers. Each is skipped when it has no key.
+    vision_providers: tuple[str, ...]
+    groq_vision_model: str
+    # Gemini models tried after the caption model, for when it is overloaded.
+    gemini_vision_fallback_models: tuple[str, ...]
+    vision_timeout_sec: int
+    # Read each uploaded image's charts and tables with a vision model at
+    # ingestion. Off leaves only the OCR-geometry reading.
+    vision_structure: bool
+
 
 settings = Settings(
     upload_dir=Path(os.getenv("UPLOAD_DIR", "/data/uploads")),
@@ -66,4 +83,10 @@ settings = Settings(
     gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
     gemini_caption_model=os.getenv("GEMINI_CAPTION_MODEL", "gemini-3.8-flash"),
     gemini_file_api_fallback=_bool("GEMINI_FILE_API_FALLBACK", True),
+    groq_api_key=os.getenv("GROQ_API_KEY", ""),
+    vision_providers=_list("VISION_PROVIDERS", "groq,gemini"),
+    groq_vision_model=os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b"),
+    gemini_vision_fallback_models=_list("GEMINI_VISION_FALLBACK_MODELS", "gemini-2.5-flash"),
+    vision_timeout_sec=_int("VISION_TIMEOUT_SEC", 30),
+    vision_structure=_bool("VISION_STRUCTURE", True),
 )

@@ -34,6 +34,7 @@ function chunk(overrides: Partial<RetrievedChunk> = {}): RetrievedChunk {
     externalUrl: null,
     rerankScore: null,
     gradedBy: null,
+    visual: null,
     ...overrides,
   };
 }
@@ -148,6 +149,29 @@ test('a fact stated once is answered when both judges rate its passage highly', 
 test('a single passage the reranker doubts still needs corroboration', () => {
   const relevant = [chunk({ score: 0.95, gradedBy: 'llm', rerankScore: 0.1 })];
   assert.equal(decide(state({ relevant, iteration: 1 }), LIMITS).decision, 'retry');
+});
+
+test('a chart the grader rates highly is decisive even when the reranker scores its grid low', () => {
+  // "Which year had the highest market size?": graded 0.9, reranked 0.22.
+  const region = {
+    id: 'r3',
+    type: 'chart' as const,
+    title: 'Market Size',
+    unit: 'USD Billion',
+    description: null,
+    text: null,
+    columns: ['year', 'value'],
+    data: [{ year: 2026, value: 48.2 }],
+    bbox: null,
+    origin: 'layout' as const,
+    estimated: false,
+    ocrAgreement: 1,
+  };
+  const chart = [chunk({ score: 0.9, gradedBy: 'llm', rerankScore: 0.22, visual: region })];
+  assert.equal(decide(state({ relevant: chart, iteration: 1 }), LIMITS).decision, 'answer');
+  // The exemption is from the reranker's veto only, not from the grader's bar.
+  const doubted = [chunk({ score: 0.6, gradedBy: 'llm', rerankScore: 0.22, visual: region })];
+  assert.equal(decide(state({ relevant: doubted, iteration: 1 }), LIMITS).decision, 'retry');
 });
 
 test('a single reranker-only verdict is decisive only near certainty', () => {

@@ -10,6 +10,8 @@ import {
   mlHealthSchema,
   rerankRequestSchema,
   rerankResponseSchema,
+  visionAnswerRequestSchema,
+  visionAnswerResponseSchema,
   type EmbedImageRequest,
   type EmbedImageResponse,
   type EmbedQueryRequest,
@@ -21,6 +23,8 @@ import {
   type MlHealth,
   type RerankRequest,
   type RerankResponse,
+  type VisionAnswerRequest,
+  type VisionAnswerResponse,
 } from '@trace/contracts';
 import type { ZodType, ZodTypeDef } from 'zod';
 import { env } from '../env.js';
@@ -31,6 +35,8 @@ import { isAppError, toError, upstreamFailure } from '../errors.js';
 const TIMEOUTS_MS = {
   extract: 15 * 60 * 1000,
   embed: 2 * 60 * 1000,
+  // Two providers, each with a 30-second ceiling, and a question is waiting.
+  vision: 75_000,
   health: 5_000,
 } as const;
 
@@ -90,6 +96,9 @@ export const mlClient = {
 
   rerank: (req: RerankRequest): Promise<RerankResponse> =>
     call('/rerank', req, rerankRequestSchema, rerankResponseSchema, TIMEOUTS_MS.embed),
+
+  visionAnswer: (req: VisionAnswerRequest): Promise<VisionAnswerResponse> =>
+    call('/vision/answer', req, visionAnswerRequestSchema, visionAnswerResponseSchema, TIMEOUTS_MS.vision),
 
   async health(): Promise<MlHealth> {
     const controller = new AbortController();

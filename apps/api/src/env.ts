@@ -105,6 +105,9 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
+  /** Images a vision model is asked about before the loop abstains. Each is
+   *  one vision call; 0 turns the look off and leaves region search only. */
+  VISUAL_CHECK_MAX_IMAGES: z.coerce.number().int().nonnegative().default(2),
   WEB_SEARCH_PROVIDER: z.enum(['duckduckgo', 'tavily', 'none']).default('duckduckgo'),
   TAVILY_API_KEY: z.string().default(''),
 

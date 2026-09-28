@@ -12,8 +12,12 @@
  * It does not guess a position: a highlight drawn over the wrong paragraph is
  * worse than no highlight, because it looks authoritative.
  *
+ * Regions of images and scanned pages do carry a box — a chart, a table, a
+ * photo — measured from the OCR lines that print its own labels, so a
+ * citation into one outlines that region (regionRects).
+ *
  * TODO: switch pdf.py to get_text("words"), persist word boxes on the chunk,
- * and map charStart/charEnd to rects here.
+ * and map charStart/charEnd to rects here for text-layer PDFs.
  */
 export interface HighlightRect {
   /** All four normalised to the page box, origin top-left. */
@@ -46,9 +50,22 @@ export function HighlightLayer({
             backgroundColor: active
               ? undefined
               : 'color-mix(in srgb, var(--highlight) 30%, transparent)',
+            boxShadow: active ? '0 0 0 2px var(--vermillion)' : undefined,
           }}
         />
       ))}
     </div>
   );
+}
+
+/** The outline for a citation into a region of an image or scanned page. */
+export function regionRects(region: { bbox: [number, number, number, number] | null } | null): HighlightRect[] {
+  if (!region?.bbox) return [];
+  const [x0, y0, x1, y1] = region.bbox;
+  // A little air around the labels the box was measured from, so the outline
+  // frames the chart rather than touching its text.
+  const pad = 0.008;
+  const x = Math.max(0, x0 - pad);
+  const y = Math.max(0, y0 - pad);
+  return [{ x, y, width: Math.min(1, x1 + pad) - x, height: Math.min(1, y1 + pad) - y }];
 }

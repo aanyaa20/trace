@@ -1,8 +1,9 @@
-import type { BlockSource, ExtractBlock } from '@trace/contracts';
+import type { BlockSource, ExtractBlock, VisualRegion } from '@trace/contracts';
 
 export interface PlannedChunk {
   ordinal: number;
-  kind: 'text' | 'image';
+  /** "region" is one region of an image or scanned page, kept whole. */
+  kind: 'text' | 'image' | 'region';
   source: BlockSource;
   text: string;
   page: number | null;
@@ -16,6 +17,8 @@ export interface PlannedChunk {
   /** The heading the chunk sits under — from a markdown-style heading in the
    *  text, or the section the extractor assigned the block. */
   section: string | null;
+  /** The region's structure — type, title, records, box — for region chunks. */
+  visual: VisualRegion | null;
 }
 
 export interface ChunkOptions {
@@ -113,7 +116,7 @@ export function sectionAt(
 }
 
 interface Emitter {
-  push(chunk: Omit<PlannedChunk, 'ordinal'>): void;
+  push(chunk: Omit<PlannedChunk, 'ordinal' | 'visual'>): void;
 }
 
 /** Below this a section is merged forward rather than cut into a tiny chunk. */
@@ -225,12 +228,35 @@ function mergeRun(blocks: ExtractBlock[], options: ChunkOptions, emit: Emitter):
  * according to what preserves their locator.
  */
 export function planChunks(blocks: ExtractBlock[], options: ChunkOptions): PlannedChunk[] {
-  const planned: Array<Omit<PlannedChunk, 'ordinal'>> = [];
+  const planned: Array<Omit<PlannedChunk, 'ordinal' | 'visual'> & { visual?: VisualRegion | null }> = [];
   const emit: Emitter = { push: (chunk) => planned.push(chunk) };
 
   let index = 0;
   while (index < blocks.length) {
     const block = blocks[index]!;
+
+    // A region is already the unit a citation points at: one chart, one
+    // table, one run of text with its box. Splitting it would separate a
+    // label from its value; merging it would blur the box.
+    if (block.kind === 'region') {
+      if (block.text.trim().length > 0) {
+        planned.push({
+          kind: 'region',
+          source: block.source,
+          text: block.text.trim(),
+          page: block.page,
+          charStart: null,
+          charEnd: null,
+          tsStart: block.tsStart,
+          tsEnd: block.tsEnd,
+          imagePath: block.imagePath,
+          section: block.section ?? null,
+          visual: block.visual ?? null,
+        });
+      }
+      index += 1;
+      continue;
+    }
 
     if (block.kind === 'image') {
       planned.push({
@@ -278,5 +304,5 @@ export function planChunks(blocks: ExtractBlock[], options: ChunkOptions): Plann
     index = next;
   }
 
-  return planned.map((chunk, ordinal) => ({ ...chunk, ordinal }));
+  return planned.map((chunk, ordinal) => ({ ...chunk, visual: chunk.visual ?? null, ordinal }));
 }

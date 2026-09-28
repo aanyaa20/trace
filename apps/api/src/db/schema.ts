@@ -11,7 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import type { AgentTrace, Citation } from '@trace/contracts';
+import type { AgentTrace, Citation, VisualRegion } from '@trace/contracts';
 
 export const modalityEnum = pgEnum('modality', ['text', 'pdf', 'image', 'audio', 'video']);
 export const documentStatusEnum = pgEnum('document_status', [
@@ -20,7 +20,7 @@ export const documentStatusEnum = pgEnum('document_status', [
   'indexed',
   'failed',
 ]);
-export const blockSourceEnum = pgEnum('block_source', ['text', 'ocr', 'asr', 'caption']);
+export const blockSourceEnum = pgEnum('block_source', ['text', 'ocr', 'asr', 'caption', 'vision']);
 export const messageRoleEnum = pgEnum('message_role', ['user', 'assistant']);
 export const retrievalModeEnum = pgEnum('retrieval_mode', ['agentic', 'naive']);
 export const connectorKindEnum = pgEnum('connector_kind', ['imap']);
@@ -156,6 +156,9 @@ export const chunks = pgTable(
     imagePath: text('image_path'),
     /** The heading the chunk sits under, or the slide title, when known. */
     section: text('section'),
+    /** The region of an image or scanned page this chunk is: its type, title,
+     *  records and box. Null for ordinary text chunks. */
+    visual: jsonb('visual').$type<VisualRegion>(),
     /** Qdrant accepts only uuid or unsigned int ids; this mirrors chunks.id. */
     qdrantPointId: uuid('qdrant_point_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

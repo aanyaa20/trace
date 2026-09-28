@@ -8,7 +8,7 @@ from fastapi import FastAPI
 
 from . import pool
 from .config import settings
-from .routers import embed, extract, health
+from .routers import embed, extract, health, vision
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -39,3 +39,4 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(extract.router)
 app.include_router(embed.router)
+app.include_router(vision.router)

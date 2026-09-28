@@ -28,6 +28,11 @@ export function thresholds(): SufficiencyThresholds {
   };
 }
 
+/** A chart or table read from an image or scanned page. */
+export function isDataRegion(chunk: RetrievedChunk): boolean {
+  return chunk.visual?.type === 'chart' || chunk.visual?.type === 'table';
+}
+
 /** Whether one kept chunk clears the floor for whichever judge kept it. */
 export function isStrong(chunk: RetrievedChunk, limits: SufficiencyThresholds): boolean {
   return chunk.gradedBy === 'rerank'
@@ -83,11 +88,19 @@ export function decide(state: AgentState, limits: SufficiencyThresholds): {
   // With the grader unavailable, a reranker-only verdict can be decisive too,
   // but only near certainty: on the calibration set every relevant passage
   // scored 0.99+ and every trap, off-topic and unsupported pair 0.00-0.03.
+  //
+  // A chart or table region is exempt from the reranker's agreement. The
+  // cross-encoder is trained on prose passages and scores a grid of numbers
+  // poorly however well it answers: the correct market-size chart scored 0.22
+  // for "which year was highest" while the grader, reading it, gave 0.9. Its
+  // veto there measured the format, not the relevance.
   const decisive = strong.find((chunk) =>
     chunk.gradedBy === 'rerank'
       ? chunk.score >= limits.singleSourceRerank
       : chunk.score >= limits.singleSourceScore &&
-        (chunk.rerankScore === null || chunk.rerankScore >= SINGLE_SOURCE_RERANK),
+        (chunk.rerankScore === null ||
+          chunk.rerankScore >= SINGLE_SOURCE_RERANK ||
+          isDataRegion(chunk)),
   );
   // The question named the page or slide, retrieval went there by metadata,
   // and the grader confirmed the passage answers it: that is the evidence.

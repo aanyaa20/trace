@@ -65,6 +65,8 @@ export interface AgentState {
   decision: SufficiencyDecision | null;
   /** Set once web fallback has run, so it is never attempted twice. */
   webSearched: boolean;
+  /** Set once the images have been looked at directly, likewise once only. */
+  visualChecked: boolean;
 
   answer: string;
   abstained: boolean;
@@ -111,6 +113,7 @@ export function initialState(input: {
     external: [],
     decision: null,
     webSearched: false,
+    visualChecked: false,
     answer: '',
     abstained: false,
     citations: [],

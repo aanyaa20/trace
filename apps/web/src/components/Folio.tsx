@@ -20,6 +20,7 @@ export const STAGE_COPY: Record<string, string> = {
   grade: 'weighing each passage',
   sufficiency: 'deciding whether that is enough',
   web_search: 'looking outside your corpus',
+  visual_check: 'looking closely at the images',
   synthesise: 'writing, with citations',
   citations: 'checking every citation resolves',
 };

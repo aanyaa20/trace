@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { blockSourceSchema, modalitySchema } from './common.js';
+import { bboxSchema, blockSourceSchema, modalitySchema, regionTypeSchema } from './common.js';
 
 /**
  * A citation resolves to an exact location. Which locator fields are populated
@@ -26,6 +26,21 @@ export const citationSchema = z.object({
   /** True for web-search fallback results, which are not part of the corpus. */
   external: z.boolean().default(false),
   externalUrl: z.string().url().nullable().default(null),
+  /**
+   * The region of an image or scanned page the claim came from: what kind of
+   * thing it is, its printed title, and where it sits, so the reader is told
+   * "the Market Size chart" rather than shown a paragraph that is not there,
+   * and the viewer can outline it.
+   */
+  region: z
+    .object({
+      id: z.string(),
+      type: regionTypeSchema,
+      title: z.string().nullable(),
+      bbox: bboxSchema.nullable(),
+    })
+    .nullable()
+    .default(null),
 });
 export type Citation = z.infer<typeof citationSchema>;
 
