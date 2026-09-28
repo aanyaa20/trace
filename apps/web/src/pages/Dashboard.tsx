@@ -158,7 +158,7 @@ function CorpusCard({ corpus }: { corpus: Corpus }): React.ReactElement {
 
       <div className="mt-4 flex gap-1.5 border-t border-rule pt-3.5">
         <Link to={`/app/kb/${kb.id}/ask`} className="btn btn-primary btn-sm">
-          Ask Vera
+          Ask Folio
         </Link>
         <Link to={`/app/kb/${kb.id}/library`} className="btn btn-secondary btn-sm">
           Library

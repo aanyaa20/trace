@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { VERA } from './Vera.js';
+import { FOLIO } from './Folio.js';
 
 /**
  * The product, running, on the front page.
@@ -162,10 +162,10 @@ export function Specimen(): React.ReactElement {
         {phase === 'think' && (
           <div className="chat-row spec-in">
             <span className="chat-avatar" aria-hidden>
-              {VERA.slice(0, 1)}
+              {FOLIO.slice(0, 1)}
             </span>
             <div className="chat-stack">
-              <div className="bubble bubble-vera">
+              <div className="bubble bubble-folio">
                 <span className="typing">
                   <span />
                   <span />
@@ -180,10 +180,10 @@ export function Specimen(): React.ReactElement {
         {answering && (
           <div className="chat-row">
             <span className="chat-avatar" aria-hidden>
-              {VERA.slice(0, 1)}
+              {FOLIO.slice(0, 1)}
             </span>
             <div className="chat-stack">
-              <div className="bubble bubble-vera">
+              <div className="bubble bubble-folio">
                 {tokens.slice(0, shown).map((token, index) =>
                   'marker' in token ? (
                     <span

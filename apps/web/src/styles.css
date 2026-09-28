@@ -43,13 +43,13 @@
 
   /* Chat bubbles. Your own message carries the accent the way it does in every
      messenger, so the side a message sits on is never the only thing telling
-     you who said it. Vera answers on paper, because her turn is the one that
+     you who said it. Folio answers on paper, because her turn is the one that
      holds citations and citations are printed, not spoken. */
   --bubble-me: #c2441f;
   --bubble-me-ink: #fff6f2;
-  --bubble-vera: var(--surface-raised);
-  --bubble-vera-ink: var(--ink);
-  --bubble-vera-rule: var(--rule);
+  --bubble-folio: var(--surface-raised);
+  --bubble-folio-ink: var(--ink);
+  --bubble-folio-rule: var(--rule);
 
   /* The sign-in panel. Two beiges side by side read as a rendering fault
      rather than a decision, so the panel goes to ink and the specimen on it
@@ -95,9 +95,9 @@
      clears 8:1. */
   --bubble-me: #6a2d1b;
   --bubble-me-ink: #fbeae4;
-  --bubble-vera: var(--surface);
-  --bubble-vera-ink: var(--ink);
-  --bubble-vera-rule: var(--rule);
+  --bubble-folio: var(--surface);
+  --bubble-folio-ink: var(--ink);
+  --bubble-folio-rule: var(--rule);
 
   /* The room is already dark, so the panel steps up rather than down — far
      enough off the page to be a surface, not so far it becomes a second
@@ -393,14 +393,14 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Vera. The assistant is a face rather than an empty text box, because a
+   Folio. The assistant is a face rather than an empty text box, because a
    reader arriving at a blank composer has no way to know what this system
    will and will not do. Every motion here is small and slow: a mascot that
    jumps around competes with the answer, which is the thing worth reading.
    All of it stops under prefers-reduced-motion.
 ---------------------------------------------------------------------------- */
 
-@keyframes vera-enter {
+@keyframes folio-enter {
   from {
     opacity: 0;
     transform: translateX(-28px);
@@ -411,7 +411,7 @@
   }
 }
 
-@keyframes vera-bob {
+@keyframes folio-bob {
   0%,
   100% {
     transform: translateY(0);
@@ -421,7 +421,7 @@
   }
 }
 
-@keyframes vera-blink {
+@keyframes folio-blink {
   0%,
   92%,
   100% {
@@ -432,7 +432,7 @@
   }
 }
 
-@keyframes vera-scan {
+@keyframes folio-scan {
   0%,
   100% {
     transform: translateX(-2px);
@@ -442,7 +442,7 @@
   }
 }
 
-@keyframes vera-blip {
+@keyframes folio-blip {
   0%,
   100% {
     opacity: 1;
@@ -454,13 +454,13 @@
   }
 }
 
-@keyframes vera-spin {
+@keyframes folio-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-@keyframes vera-dot {
+@keyframes folio-dot {
   0%,
   60%,
   100% {
@@ -473,40 +473,40 @@
   }
 }
 
-.vera-enter {
-  animation: vera-enter 620ms var(--ease-out) both;
+.folio-enter {
+  animation: folio-enter 620ms var(--ease-out) both;
 }
 
-.vera-bob {
-  animation: vera-bob 3.6s ease-in-out infinite;
+.folio-bob {
+  animation: folio-bob 3.6s ease-in-out infinite;
   transform-origin: center;
 }
 
-.vera-bob-fast {
-  animation: vera-bob 1.6s ease-in-out infinite;
+.folio-bob-fast {
+  animation: folio-bob 1.6s ease-in-out infinite;
   transform-origin: center;
 }
 
-.vera-blink {
-  animation: vera-blink 5.5s ease-in-out infinite;
+.folio-blink {
+  animation: folio-blink 5.5s ease-in-out infinite;
   transform-origin: center 24px;
 }
 
-.vera-scan {
-  animation: vera-scan 1.2s ease-in-out infinite;
+.folio-scan {
+  animation: folio-scan 1.2s ease-in-out infinite;
 }
 
-.vera-blip {
-  animation: vera-blip 2s ease-in-out infinite;
+.folio-blip {
+  animation: folio-blip 2s ease-in-out infinite;
 }
 
-.vera-spin {
-  animation: vera-spin 1.1s linear infinite;
+.folio-spin {
+  animation: folio-spin 1.1s linear infinite;
   transform-origin: 28px 28px;
 }
 
 /* The notch that makes the panel a speech bubble rather than a card. */
-.vera-bubble::before {
+.folio-bubble::before {
   content: '';
   position: absolute;
   left: -7px;
@@ -519,40 +519,40 @@
   transform: rotate(45deg);
 }
 
-.vera-dots {
+.folio-dots {
   display: inline-flex;
   gap: 3px;
 }
 
-.vera-dots i {
+.folio-dots i {
   width: 3px;
   height: 3px;
   border-radius: 999px;
   background-color: var(--vermillion);
-  animation: vera-dot 1.4s ease-in-out infinite;
+  animation: folio-dot 1.4s ease-in-out infinite;
 }
 
-.vera-dots i:nth-child(2) {
+.folio-dots i:nth-child(2) {
   animation-delay: 0.18s;
 }
 
-.vera-dots i:nth-child(3) {
+.folio-dots i:nth-child(3) {
   animation-delay: 0.36s;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vera-enter,
-  .vera-bob,
-  .vera-bob-fast,
-  .vera-blink,
-  .vera-scan,
-  .vera-blip,
-  .vera-dots i {
+  .folio-enter,
+  .folio-bob,
+  .folio-bob-fast,
+  .folio-blink,
+  .folio-scan,
+  .folio-blip,
+  .folio-dots i {
     animation: none;
   }
 
   /* The spinner stays: it is the only signal that work is still happening. */
-  .vera-spin {
+  .folio-spin {
     animation-duration: 2.4s;
   }
 }
@@ -895,7 +895,7 @@ input:-webkit-autofill:focus {
    A conversation reads as a conversation: turns alternate sides, your own
    question carries the accent, and the newest turn is at the bottom where you
    are already looking. The one departure from the messenger idiom is width —
-   an answer here is prose with citations in it, not a line of talk, so Vera's
+   an answer here is prose with citations in it, not a line of talk, so Folio's
    bubble is allowed to be wide enough to read at a comfortable measure while
    yours stays short.
    --------------------------------------------------------------------------- */
@@ -984,11 +984,11 @@ input:-webkit-autofill:focus {
   font-weight: 450;
 }
 
-.bubble-vera {
+.bubble-folio {
   border-bottom-left-radius: 5px;
-  background-color: var(--bubble-vera);
-  color: var(--bubble-vera-ink);
-  border: 1px solid var(--bubble-vera-rule);
+  background-color: var(--bubble-folio);
+  color: var(--bubble-folio-ink);
+  border: 1px solid var(--bubble-folio-rule);
   box-shadow: var(--shadow-row);
 }
 
@@ -1023,7 +1023,7 @@ input:-webkit-autofill:focus {
   text-align: right;
 }
 
-/* Source chips ride under Vera's bubble rather than in a column beside it, so
+/* Source chips ride under Folio's bubble rather than in a column beside it, so
    a numeral in an old answer still has its legend attached when the panel that
    belonged to it has scrolled away. */
 .chat-sources {
@@ -1075,7 +1075,7 @@ input:-webkit-autofill:focus {
   white-space: nowrap;
 }
 
-/* Vera is typing. Three dots is the one gesture everyone already reads as
+/* Folio is typing. Three dots is the one gesture everyone already reads as
    "hold on", and it sits in a bubble so the wait occupies the place the answer
    will occupy rather than shifting the thread when it arrives. */
 .typing {
@@ -1123,9 +1123,9 @@ input:-webkit-autofill:focus {
 
 /* An abstention is not a failure, but it is not an answer either, and the
    thread should not let it pass as one. */
-.bubble-vera.is-abstained {
+.bubble-folio.is-abstained {
   border-color: color-mix(in srgb, var(--ochre) 45%, var(--rule));
-  background-color: color-mix(in srgb, var(--ochre) 8%, var(--bubble-vera));
+  background-color: color-mix(in srgb, var(--ochre) 8%, var(--bubble-folio));
 }
 
 @media (max-width: 640px) {
@@ -1316,7 +1316,7 @@ input:-webkit-autofill:focus {
 
 /* Each word lands rather than appearing, so the answer reads as being written
    instead of as text being pasted in a chunk at a time. */
-.bubble-vera > span {
+.bubble-folio > span {
   animation: spec-word 220ms var(--ease-out) both;
 }
 
@@ -1380,7 +1380,7 @@ input:-webkit-autofill:focus {
   .spec-in,
   .spec-chip,
   .spec-marker,
-  .bubble-vera > span {
+  .bubble-folio > span {
     animation: none;
   }
   .spec-caret {

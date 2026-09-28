@@ -58,7 +58,7 @@ const MODULES: Module[] = [
   },
   {
     path: 'ask',
-    label: 'Ask Vera',
+    label: 'Ask Folio',
     note: 'answers with citations',
     primary: true,
     icon: (

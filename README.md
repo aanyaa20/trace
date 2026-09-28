@@ -174,7 +174,7 @@ gives the column its width back. The divider between them drags.
   its citations still live, because a stored answer renders through the same
   component as a streaming one. The first question names the thread.
 
-The assistant has a name, **Vera**, and introduces herself on an empty thread:
+The assistant has a name, **Folio**, and introduces herself on an empty thread:
 what she will answer from, that every sentence carries a number, and that she
 refuses rather than guesses. While the loop runs she reports the stage it is
 actually in — working out the question, searching, weighing passages, deciding

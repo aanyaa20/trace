@@ -175,13 +175,13 @@ export function classifySmallTalk(query: string): SmallTalkKind | null {
 }
 
 /**
- * Vera's own words. Each one answers the thing asked and then points at the
+ * Folio's own words. Each one answers the thing asked and then points at the
  * job, because the reason someone is typing into this box is the corpus.
  */
 export function smallTalkReply(kind: SmallTalkKind): string {
   switch (kind) {
     case 'greeting':
-      return "Hello. I'm Vera — ask me anything about the documents in this knowledge base and I'll answer with a citation on every claim, or tell you plainly when the corpus cannot support an answer.";
+      return "Hello. I'm Folio — ask me anything about the documents in this knowledge base and I'll answer with a citation on every claim, or tell you plainly when the corpus cannot support an answer.";
     case 'how_are_you':
       return "Working, thank you. Ask me something about your documents — I'll point at the page, span or timestamp each part of the answer came from.";
     case 'thanks':
@@ -189,7 +189,7 @@ export function smallTalkReply(kind: SmallTalkKind): string {
     case 'farewell':
       return 'Goodbye. This thread is saved, so you can pick it up where you left off.';
     case 'identity':
-      return "I'm Vera, the assistant for this knowledge base. I read only the documents you have put here — the PDFs, scans, recordings, images and mail — and every sentence I write carries a number that opens the exact place it came from.";
+      return "I'm Folio, the assistant for this knowledge base. I read only the documents you have put here — the PDFs, scans, recordings, images and mail — and every sentence I write carries a number that opens the exact place it came from.";
     case 'capability':
       return 'Ask me a question about anything in this corpus. I search your documents, weigh what comes back, and answer only from passages I can cite — a page and character span for a document, a timestamp for a recording, the image itself for a figure. When nothing in your documents supports an answer, I say so instead of guessing.';
     case 'acknowledgement':

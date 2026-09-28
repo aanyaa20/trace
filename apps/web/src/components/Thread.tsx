@@ -2,7 +2,7 @@ import type { AgentEvent, Citation, Message } from '@trace/contracts';
 import type { AnswerState } from '../lib/useAnswer.js';
 import { Answer } from './Answer.js';
 import { Groundedness } from './Groundedness.js';
-import { VERA, stageLabel } from './Vera.js';
+import { FOLIO, stageLabel } from './Folio.js';
 import { citationLabel, locationOf } from '../lib/citationLabel.js';
 
 /**
@@ -147,11 +147,11 @@ function Answered({
   return (
     <div className={`chat-row${same ? ' is-same' : ''}`}>
       <span className="chat-avatar" aria-hidden>
-        {VERA.slice(0, 1)}
+        {FOLIO.slice(0, 1)}
       </span>
 
       <div className="chat-stack">
-        <div className={`bubble bubble-vera${state.abstained ? ' is-abstained' : ''}`}>
+        <div className={`bubble bubble-folio${state.abstained ? ' is-abstained' : ''}`}>
           <Answer
             bubble
             state={state}
@@ -179,7 +179,7 @@ function Answered({
 }
 
 /**
- * Vera is working. The bubble stands where her answer will, so the thread does
+ * Folio is working. The bubble stands where her answer will, so the thread does
  * not jump when the first token lands. Three dots say "hold on"; the line
  * under them says what for, because the gap before the first token is the
  * whole loop — analysis, retrieval, grading, sometimes another pass — and
@@ -189,10 +189,10 @@ export function Typing({ events }: { events: AgentEvent[] }): React.ReactElement
   return (
     <div className="chat-row">
       <span className="chat-avatar" aria-hidden>
-        {VERA.slice(0, 1)}
+        {FOLIO.slice(0, 1)}
       </span>
       <div className="chat-stack">
-        <div className="bubble bubble-vera" aria-label={`${VERA} is working`}>
+        <div className="bubble bubble-folio" aria-label={`${FOLIO} is working`}>
           <span className="typing" role="status">
             <span />
             <span />

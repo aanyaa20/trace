@@ -119,7 +119,7 @@ export function Threads(): React.ReactElement {
               body={
                 query
                   ? undefined
-                  : 'Vera answers from the documents in this corpus, with a citation on every claim.'
+                  : 'Folio answers from the documents in this corpus, with a citation on every claim.'
               }
               action={
                 query ? (

@@ -704,10 +704,10 @@ half of the citation model.
 
 **A blank composer explains nothing.** Someone who has not seen this before
 cannot tell from an input box that the thing behind it reads their documents,
-cites what it finds, and refuses when it cannot. Vera — from veritas, since
-verification is the whole product — says that in one sentence on an empty
-thread, and offers starter questions named after documents that are actually in
-the corpus, because a generic "summarise everything" is the question this
+cites what it finds, and refuses when it cannot. Folio — the numbered leaf of a
+book, since pointing a claim back to its page is the whole product — says that
+in one sentence on an empty thread, and offers starter questions named after
+documents that are actually in the corpus, because a generic "summarise everything" is the question this
 system answers worst: there is no span to cite for it.
 
 **The thinking state reports the real stage, not a fake sequence.** The wait

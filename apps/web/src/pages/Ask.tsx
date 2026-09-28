@@ -14,7 +14,7 @@ import { CitationsPanel } from '../components/CitationsPanel.js';
 import { Compare } from '../components/Compare.js';
 import { DocumentReader } from '../components/DocumentReader.js';
 import { Thread } from '../components/Thread.js';
-import { VERA, VeraGreeting } from '../components/Vera.js';
+import { FOLIO, FolioGreeting } from '../components/Folio.js';
 import { Segmented } from '../components/ui.js';
 import { useKb } from './KbLayout.js';
 
@@ -445,7 +445,7 @@ export function Ask(): React.ReactElement {
                 )}
 
                 {primary.state.status === 'idle' && history.length === 0 && !greeted && (
-                  <VeraGreeting
+                  <FolioGreeting
                     corpusName={kb.name}
                     documentCount={library.documents.length}
                     suggestions={suggestions}
@@ -488,7 +488,7 @@ export function Ask(): React.ReactElement {
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder={
-                  scope ? `Ask about ${scope.filename}` : `Ask ${VERA} about your documents`
+                  scope ? `Ask about ${scope.filename}` : `Ask ${FOLIO} about your documents`
                 }
                 disabled={busy || !conversationId}
                 className="composer-input w-full bg-transparent text-[14px] text-ink placeholder:text-ink-faint focus:outline-none disabled:opacity-50"

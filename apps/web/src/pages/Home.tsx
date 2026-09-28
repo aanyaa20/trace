@@ -3,7 +3,7 @@ import { useSession } from '../lib/session.js';
 import { AccountMenu } from '../components/AccountMenu.js';
 import { Specimen } from '../components/Specimen.js';
 import { ThemeToggle } from '../components/ThemeToggle.js';
-import { VERA } from '../components/Vera.js';
+import { FOLIO } from '../components/Folio.js';
 
 /**
  * The landing page has one job: show a stranger what a cited answer looks like
@@ -249,7 +249,7 @@ export function Home(): React.ReactElement {
             </p>
 
             <p className="measure mt-3 text-[15px] leading-relaxed text-ink-muted">
-              If your files do not hold the answer, {VERA} says so instead of inventing one.
+              If your files do not hold the answer, {FOLIO} says so instead of inventing one.
             </p>
 
             <div className="mt-7">
@@ -338,7 +338,7 @@ export function Home(): React.ReactElement {
         <section className="mx-auto max-w-[1100px] px-6 py-16">
           <div className="measure">
             <h2 className="font-display text-[26px] font-semibold leading-snug text-ink">
-              Point {VERA} at your own documents.
+              Point {FOLIO} at your own documents.
             </h2>
             <p className="mt-2.5 text-[13.5px] leading-relaxed text-ink-muted">
               Your PDFs, your lecture recordings, your mail — answerable in a sentence you can

@@ -178,7 +178,7 @@ check in one click, and a refusal when there is nothing to check.
 | 1 — Ingestion and the loop | Compose stack, ML service, chunker, hybrid retrieval, agent loop, citation resolver, SSE | DECISIONS.md "Phase 1" |
 | 2 — The interface | Reading room, document reader, trace drawer, embedding map, compare mode | DECISIONS.md "Phase 2" |
 | 3 — Evaluation | Harness, datasets, metrics, first report (17 Sep) | `eval/reports/2026-09-17…md` |
-| 3b — Growth and continuity | IMAP mailboxes, threads, follow-up resolution, Groq default, Ollama fallback, the assistant "Vera", more rooms | Commit `a4f909d` (25 Sep), report .docx (21 Sep) |
+| 3b — Growth and continuity | IMAP mailboxes, threads, follow-up resolution, Groq default, Ollama fallback, the assistant "Folio", more rooms | Commit `a4f909d` (25 Sep), report .docx (21 Sep) |
 | 4 — Retrieval quality and grounding (`863ad91`, 28 Sep) | Cross-encoder rerank, weighted RRF, page/slide lookup, keyword retries, single-source sufficiency, citation support check, Office/table parsing, PDF headings, noise detection, 34-question RAG benchmark | Working tree; `eval/reports/2026-09-25T19…md` |
 
 > **Note.** Phase 4 is commit `863ad91` (68 files, +4,624 / −233).
@@ -467,7 +467,7 @@ frames:
 
 **The reading room.**
 
-- **Vera**, the assistant, introduces herself on an empty thread: what she
+- **Folio**, the assistant, introduces herself on an empty thread: what she
   answers from, that every sentence carries a number, and that she refuses
   rather than guesses. While the loop runs she reports the stage it's actually
   in, read from the same event bus as the trace.

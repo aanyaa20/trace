@@ -107,7 +107,7 @@ export function Overview(): React.ReactElement {
                 onClick={() => void navigate(`/app/kb/${kb.id}/ask`)}
                 className="btn btn-primary"
               >
-                Ask Vera
+                Ask Folio
               </button>
             </>
           }

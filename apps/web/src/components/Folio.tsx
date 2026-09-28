@@ -3,10 +3,10 @@ import type { AgentEvent } from '@trace/contracts';
 
 /**
  * The assistant has a name because an empty text box does not explain itself.
- * Vera, from veritas: her whole job is that a claim she makes resolves to the
- * page it came from, and that she says so when it cannot.
+ * Folio, the numbered leaf of a book: her whole job is that a claim she makes
+ * resolves to the page it came from, and that she says so when it cannot.
  */
-export const VERA = 'Vera';
+export const FOLIO = 'Folio';
 
 /**
  * What each stage of the loop is actually doing, in the words a reader would
@@ -50,11 +50,11 @@ function Face({
       viewBox="0 0 48 48"
       fill="none"
       aria-hidden
-      className={thinking ? 'vera-bob-fast' : 'vera-bob'}
+      className={thinking ? 'folio-bob-fast' : 'folio-bob'}
     >
       {/* antenna */}
       <line x1="24" y1="6" x2="24" y2="12" stroke="var(--ink-faint)" strokeWidth="1.5" />
-      <circle cx="24" cy="5" r="2.5" fill="var(--vermillion)" className="vera-blip" />
+      <circle cx="24" cy="5" r="2.5" fill="var(--vermillion)" className="folio-blip" />
 
       {/* head */}
       <rect
@@ -69,7 +69,7 @@ function Face({
       />
 
       {/* eyes: they blink while idle and scan side to side while working */}
-      <g className={thinking ? 'vera-scan' : 'vera-blink'}>
+      <g className={thinking ? 'folio-scan' : 'folio-blink'}>
         <circle cx="18" cy="24" r="3" fill="var(--vermillion)" />
         <circle cx="30" cy="24" r="3" fill="var(--vermillion)" />
       </g>
@@ -101,7 +101,7 @@ function Face({
  * for, and goes away for good once a question has been asked — a mascot that
  * keeps introducing itself to someone who is already working is noise.
  */
-export function VeraGreeting({
+export function FolioGreeting({
   corpusName,
   documentCount,
   onDismiss,
@@ -119,16 +119,16 @@ export function VeraGreeting({
   standalone?: boolean;
 }): React.ReactElement {
   return (
-    <div className="vera-enter flex items-start gap-3.5 py-2">
+    <div className="folio-enter flex items-start gap-3.5 py-2">
       <span className="shrink-0 pt-1">
         <Face mood="greeting" size={52} />
       </span>
 
       <div className="min-w-0 flex-1">
         {/* The bubble's notch points back at her, so the words are hers. */}
-        <div className="vera-bubble relative rounded-xl border border-rule bg-surface px-4 py-3.5">
+        <div className="folio-bubble relative rounded-xl border border-rule bg-surface px-4 py-3.5">
           <p className="font-display text-[17px] font-semibold leading-snug text-ink">
-            Hi, I&rsquo;m {VERA}.
+            Hi, I&rsquo;m {FOLIO}.
           </p>
           <p className="measure mt-1.5 text-[13px] leading-relaxed text-ink-muted">
             {standalone ? (
@@ -185,7 +185,7 @@ export function VeraGreeting({
  * the stage the loop has actually reached, and the count is how many passages
  * have come back so far.
  */
-export function VeraThinking({ events }: { events: AgentEvent[] }): React.ReactElement {
+export function FolioThinking({ events }: { events: AgentEvent[] }): React.ReactElement {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -231,7 +231,7 @@ export function VeraThinking({ events }: { events: AgentEvent[] }): React.ReactE
             strokeWidth="2"
             strokeLinecap="round"
             strokeDasharray="40 117"
-            className="vera-spin"
+            className="folio-spin"
           />
         </svg>
         <Face mood="thinking" size={38} />
@@ -240,9 +240,9 @@ export function VeraThinking({ events }: { events: AgentEvent[] }): React.ReactE
       <div className="min-w-0">
         <p className="flex items-baseline gap-2 text-[14px] text-ink">
           <span>
-            {VERA} is {label}
+            {FOLIO} is {label}
           </span>
-          <span className="vera-dots" aria-hidden>
+          <span className="folio-dots" aria-hidden>
             <i />
             <i />
             <i />
