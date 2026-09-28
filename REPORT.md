@@ -614,7 +614,7 @@ missing details. Run 25 Sep 2026, 19:11.
   Phase 4 fail-fast change (1 retry, ≤ 20 s) addresses.
 
 > **Caveat.** None of these reports records which code revision it ran
-> against, and the current working tree (Phase 4) has not been benchmarked as
+> against, and the Phase 4 code (`863ad91`) has not been benchmarked as
 > a whole. Re-run B on the current tree before presenting final numbers (§10).
 
 **D. Unit tests**: 98/98 API tests pass, covering chunking and structure,
