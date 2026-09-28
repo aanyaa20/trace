@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ChunkGrade, RetrievedChunk } from '@trace/contracts';
 import { env } from '../../env.js';
 import { toError } from '../../errors.js';
+import { logger } from '../../logger.js';
 import type { AgentContext, AgentState } from '../state.js';
 import { keywordQuery, searchQuery } from './analyse.js';
 
@@ -113,12 +114,26 @@ async function gradeBatch(
   batch: RetrievedChunk[],
   ctx: AgentContext,
 ): Promise<ChunkGrade[]> {
-  const result = await ctx.fastLlm.generateStructured(prompt(query, batch), batchGradeSchema, SHAPE, {
-    system: SYSTEM,
-    temperature: 0,
-    signal: ctx.signal,
-    ...FAIL_FAST,
-  });
+  const ask = (model: AgentContext['llm']) =>
+    model.generateStructured(prompt(query, batch), batchGradeSchema, SHAPE, {
+      system: SYSTEM,
+      temperature: 0,
+      signal: ctx.signal,
+      ...FAIL_FAST,
+    });
+  let result: z.infer<typeof batchGradeSchema>;
+  try {
+    result = await ask(ctx.fastLlm);
+  } catch (cause) {
+    // The grading model is separate so it does not spend the answer model's
+    // quota, but on a free tier its own daily token cap runs out first. When
+    // it does, the answer model grades instead: its quota is separate, and
+    // the alternative is the reranker alone, which cannot read a table or a
+    // diagram description and refused answers the corpus plainly held.
+    if (ctx.llm === ctx.fastLlm || !/\b429\b|rate limit/i.test(toError(cause).message)) throw cause;
+    logger.warn('grading model rate-limited; grading this batch with the answer model');
+    result = await ask(ctx.llm);
+  }
 
   const grades: ChunkGrade[] = [];
   for (const grade of result.grades) {
@@ -200,6 +215,9 @@ export async function grade(state: AgentState, ctx: AgentContext): Promise<Agent
     if (outcome.status === 'fulfilled') grades.push(...outcome.value);
     else {
       failures.push(toError(outcome.reason).message);
+      // Logged, because a grader that silently fails hands every verdict to
+      // the reranker, and that changes answers without saying why.
+      logger.warn({ err: toError(outcome.reason).message.slice(0, 500) }, 'grading batch failed');
       ungraded.push(...(batches[index] ?? []));
     }
   });
@@ -235,6 +253,8 @@ export async function grade(state: AgentState, ctx: AgentContext): Promise<Agent
     grades: allGrades,
     relevant,
     gradedOk: state.gradedOk || judged,
+    llmGraded: state.llmGraded || grades.length > 0,
+    llmGradeFailed: state.llmGradeFailed || failures.length > 0,
     gradeFailed: state.gradeFailed || (batches.length > 0 && failures.length > 0 && !judged),
   };
 }

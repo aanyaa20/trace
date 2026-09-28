@@ -57,6 +57,14 @@ export interface AgentState {
    */
   gradedOk: boolean;
   gradeFailed: boolean;
+  /**
+   * Whether the LLM grader itself ever returned a verdict this run, and
+   * whether it ever failed. When it failed throughout, every verdict was the
+   * reranker's, which cannot judge a table or a diagram description; an
+   * abstention then says the check was limited, not that the corpus is empty.
+   */
+  llmGraded: boolean;
+  llmGradeFailed: boolean;
   /** The current candidates carry cross-encoder scores. Reset by retrieve. */
   reranked: boolean;
   /** Unique fused candidates the latest retrieval returned, before reranking. */
@@ -111,6 +119,8 @@ export function initialState(input: {
     grades: [],
     gradedOk: false,
     gradeFailed: false,
+    llmGraded: false,
+    llmGradeFailed: false,
     reranked: false,
     retrievedCount: 0,
     pinned: [],

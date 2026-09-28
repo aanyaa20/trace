@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import type { EmbeddingMap as EmbeddingMapData, Modality } from '@trace/contracts';
 import { api } from '../lib/api.js';
+import { modalityTint } from './FileIcon.js';
 
-// Warm, archival, and distinguishable without relying on hue alone: the
-// query marker is told apart by its shape, not its colour.
+// The same colour per modality as its file icon and the overview's
+// composition bar, so a green dot here is not a blue badge everywhere else.
+// The query marker is told apart by its shape, not its colour.
 const MODALITY_COLOR: Record<Modality, string> = {
-  text: '#a9c98e',
-  pdf: '#e0ae52',
-  image: '#e8674a',
-  audio: '#7fc4b0',
-  video: '#c9a882',
+  text: modalityTint('text'),
+  pdf: modalityTint('pdf'),
+  image: modalityTint('image'),
+  audio: modalityTint('audio'),
+  video: modalityTint('video'),
 };
 
 /** Canvas cannot read Tailwind tokens, so the accent is pulled off :root. */

@@ -129,6 +129,45 @@ function Toolbar({
   );
 }
 
+/**
+ * A cited chart or table, as its rows. The stored text runs its rows together
+ * and then restates each as a sentence for the retriever; set as prose it read
+ * as "Year | Market Size 2021 | 12.1 2022 | …" and stopped mid-sentence.
+ */
+function DataRows({ text }: { text: string }): React.ReactElement {
+  const lines = text.split('\n').filter((line) => line.trim().length > 0);
+  const head = lines[0] ?? '';
+  const rows = lines.filter((line) => line.includes(' | ')).map((line) => line.split(' | '));
+  const description = lines.slice(1).find((line) => !line.includes(' | ') && !/^The (chart shows|table lists)/.test(line));
+  const [header, ...body] = rows;
+  return (
+    <span className="block">
+      <span className="block text-[14.5px]">{head.replace(/^(Chart|Table) read from the image: /, '')}</span>
+      {description && <span className="mt-1 block text-[13.5px] opacity-80">{description}</span>}
+      {header && (
+        <table className="answer-table mt-2 text-[14px]">
+          <thead>
+            <tr>
+              {header.map((cell, index) => (
+                <th key={index}>{cell}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {body.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {row.map((cell, index) => (
+                  <td key={index}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </span>
+  );
+}
+
 /** The cited receipt, printed on parchment like every other piece of evidence. */
 function Evidence({
   citation,
@@ -165,7 +204,11 @@ function Evidence({
           overflowWrap: 'anywhere',
         }}
       >
-        {citation.snippet}
+        {citation.region && (citation.region.type === 'chart' || citation.region.type === 'table') ? (
+          <DataRows text={resolved?.context ?? citation.snippet} />
+        ) : (
+          citation.snippet
+        )}
       </blockquote>
 
       {error && (

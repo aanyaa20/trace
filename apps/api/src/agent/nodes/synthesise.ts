@@ -16,6 +16,15 @@ const MAX_CHARS_PER_SOURCE = 1600;
 export const GRADING_FAILED_TEXT =
   "Sorry, I couldn't check the passages I found — the AI service is busy right now (its per-minute limit was reached). This is not a statement about your documents. Please ask again in about a minute.";
 
+/**
+ * An abstention decided while the LLM grader was unavailable the whole run.
+ * The local reranker judged alone, and it scores tables, charts and diagram
+ * descriptions near zero however well they answer; "your documents do not
+ * contain this" would then be a claim nobody checked.
+ */
+export const LIMITED_CHECK_TEXT =
+  "I couldn't confirm an answer, but this may not be the documents' fault: the AI service's usage limit was reached, so a smaller local model judged the passages on its own and it cannot read tables or diagrams well. Please ask again later.";
+
 export const ABSTENTION_TEXT =
   'The documents in this knowledge base do not contain enough evidence to answer that. Nothing here is close enough to the question for me to cite, so I would be guessing.';
 
@@ -171,7 +180,12 @@ export async function synthesise(input: AgentState, ctx: AgentContext): Promise<
   // already judged insufficient would make the abstention path decorative, and
   // the trace would show a decision the answer contradicts.
   if (state.decision === 'abstain' || evidence.length === 0) {
-    const text = state.gradeFailed && !state.gradedOk ? GRADING_FAILED_TEXT : ABSTENTION_TEXT;
+    const text =
+      state.gradeFailed && !state.gradedOk
+        ? GRADING_FAILED_TEXT
+        : state.llmGradeFailed && !state.llmGraded
+          ? LIMITED_CHECK_TEXT
+          : ABSTENTION_TEXT;
     ctx.onToken(text);
     stage.complete({ stage: 'synthesise', abstained: true, characters: text.length, question, sources });
     return { ...state, answer: text, abstained: true };

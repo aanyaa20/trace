@@ -174,6 +174,15 @@ test('a chart the grader rates highly is decisive even when the reranker scores 
   assert.equal(decide(state({ relevant: doubted, iteration: 1 }), LIMITS).decision, 'retry');
 });
 
+test('an image the grader rates highly is decisive even when the reranker scores its OCR low', () => {
+  // "What are the stages of the pipeline in the architecture diagram?"
+  const diagram = [chunk({ score: 0.95, gradedBy: 'llm', rerankScore: 0.02, modality: 'image', source: 'ocr' })];
+  assert.equal(decide(state({ relevant: diagram, iteration: 1 }), LIMITS).decision, 'answer');
+  // Prose keeps the veto.
+  const prose = [chunk({ score: 0.95, gradedBy: 'llm', rerankScore: 0.02 })];
+  assert.equal(decide(state({ relevant: prose, iteration: 1 }), LIMITS).decision, 'retry');
+});
+
 test('a single reranker-only verdict is decisive only near certainty', () => {
   // "How many documents is the dump split into?" with the grader rate-limited:
   // the reranker scored the answering passage 1.000.

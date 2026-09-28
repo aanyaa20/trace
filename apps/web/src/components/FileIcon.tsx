@@ -51,3 +51,9 @@ export function FileIcon({
 export function modalityLabel(modality: Modality): string {
   return STYLE[modality].label;
 }
+
+/** A modality's conventional colour, for anything that shows the mix of the
+ *  corpus: the same hue as its icon, so a legend needs no second key. */
+export function modalityTint(modality: Modality): string {
+  return STYLE[modality].tint;
+}

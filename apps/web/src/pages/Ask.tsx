@@ -17,7 +17,7 @@ import { Thread } from '../components/Thread.js';
 import { FOLIO, FolioGreeting } from '../components/Folio.js';
 import { Segmented } from '../components/ui.js';
 import { useKb } from './KbLayout.js';
-import { displayName } from '../lib/mail.js';
+import { displayName, isMail } from '../lib/mail.js';
 
 /** The reading room: the document on the left, the answer as marginalia. */
 export function Ask(): React.ReactElement {
@@ -217,15 +217,19 @@ export function Ask(): React.ReactElement {
    * answers worst, because there is no span to cite for it.
    */
   const suggestions = useMemo(() => {
-    const docs = library.documents;
+    // Only documents that were indexed and have something in them: a starter
+    // naming a file that failed to ingest (a music track with no speech) is a
+    // question guaranteed to be refused.
+    const docs = library.documents.filter((doc) => doc.status === 'indexed' && doc.chunkCount > 0);
     const pick = (test: (doc: Document) => boolean): Document | undefined => docs.find(test);
     const pdf = pick((doc) => doc.modality === 'pdf');
     const media = pick((doc) => doc.modality === 'audio' || doc.modality === 'video');
-    const mail = pick((doc) => doc.modality === 'text');
+    const image = pick((doc) => doc.modality === 'image');
+    const mail = pick(isMail);
 
     return [
       pdf ? `What does ${pdf.filename} say?` : null,
-      media ? `What is said in ${media.filename}?` : null,
+      media ? `What is said in ${media.filename}?` : image ? `What does ${image.filename} show?` : null,
       mail ? `What was the last message about?` : null,
     ].filter((entry): entry is string => entry !== null);
   }, [library.documents]);

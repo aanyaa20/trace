@@ -33,3 +33,14 @@ export function formatDuration(seconds: number): string {
   const s = total % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
+
+/** "12m ago", "3h ago", "2d ago": how long since, for lists of recent things. */
+export function ago(iso: string): string {
+  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 90) return 'just now';
+  const minutes = seconds / 60;
+  if (minutes < 60) return `${Math.round(minutes)}m ago`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${Math.round(hours)}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}

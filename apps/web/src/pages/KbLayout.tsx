@@ -3,6 +3,7 @@ import { NavLink, Outlet, useOutletContext, useParams } from 'react-router-dom';
 import type { Connector, KnowledgeBase } from '@trace/contracts';
 import { api } from '../lib/api.js';
 import { useDocuments, type DocumentsState } from '../lib/useDocuments.js';
+import { topLevel } from '../lib/mail.js';
 
 export interface KbContext {
   kb: KnowledgeBase;
@@ -122,6 +123,7 @@ const MODULES: Module[] = [
 ];
 
 const RAIL_KEY = 'trace:rail-collapsed';
+const NARROW = '(max-width: 760px)';
 
 /**
  * Everything under one knowledge base shares its documents and its connectors.
@@ -145,6 +147,18 @@ export function KbLayout(): React.ReactElement {
       return false;
     }
   });
+
+  // On a phone the full rail takes half the width, and every page beside it
+  // is squeezed until its columns overlap. Below this width the rail is
+  // always the icon strip, whatever was chosen on a wider screen.
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW).matches);
+  useEffect(() => {
+    const query = window.matchMedia(NARROW);
+    const update = (): void => setNarrow(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  const railCollapsed = collapsed || narrow;
 
   useEffect(() => {
     try {
@@ -202,7 +216,8 @@ export function KbLayout(): React.ReactElement {
   const context: KbContext = { kb, library, connectors, reloadConnectors };
 
   const counts: Record<string, number> = {
-    library: library.documents.length,
+    // The count the library page shows: a mail and its attachments are one item.
+    library: topLevel(library.documents).length,
     mailboxes: connectors.length,
   };
 
@@ -210,10 +225,10 @@ export function KbLayout(): React.ReactElement {
     <div className="flex min-h-0 flex-1">
       <aside
         className="flex shrink-0 flex-col border-r border-rule bg-paper-sunk"
-        style={{ width: collapsed ? 52 : 196, transition: 'width var(--dur) var(--ease-out)' }}
+        style={{ width: railCollapsed ? 52 : 196, transition: 'width var(--dur) var(--ease-out)' }}
       >
         <div className="flex items-center border-b border-rule px-3" style={{ height: 48 }}>
-          {collapsed ? (
+          {railCollapsed ? (
             <span
               className="mx-auto flex h-7 w-7 items-center justify-center rounded-md text-[12px] font-semibold"
               style={{ backgroundColor: 'var(--surface)', color: 'var(--ink)' }}
@@ -232,7 +247,7 @@ export function KbLayout(): React.ReactElement {
         </div>
 
         <nav className="min-h-0 flex-1 overflow-y-auto scroll-slim px-2 py-3">
-          {!collapsed && <p className="eyebrow px-2 pb-1.5">corpus</p>}
+          {!railCollapsed && <p className="eyebrow px-2 pb-1.5">corpus</p>}
           <ul className="space-y-px">
             {MODULES.map((module) => (
               <li key={module.path}>
@@ -241,12 +256,12 @@ export function KbLayout(): React.ReactElement {
                   // The overview is the index route, so without this every
                   // entry would light up while sitting on it.
                   end={module.path === ''}
-                  title={collapsed ? module.label : undefined}
+                  title={railCollapsed ? module.label : undefined}
                   className="relative flex items-center gap-2.5 rounded-md px-2"
-                  data-collapsed={collapsed}
+                  data-collapsed={railCollapsed}
                   style={({ isActive }) => ({
-                    height: collapsed ? 36 : 40,
-                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    height: railCollapsed ? 36 : 40,
+                    justifyContent: railCollapsed ? 'center' : 'flex-start',
                     backgroundColor: isActive ? 'var(--surface-raised)' : 'transparent',
                     color: isActive ? 'var(--ink)' : 'var(--ink-muted)',
                     transition: 'background-color var(--dur) var(--ease-out)',
@@ -285,7 +300,7 @@ export function KbLayout(): React.ReactElement {
                         {module.icon}
                       </svg>
 
-                      {!collapsed && (
+                      {!railCollapsed && (
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium leading-tight">
                             {module.label}
@@ -296,7 +311,7 @@ export function KbLayout(): React.ReactElement {
                         </span>
                       )}
 
-                      {!collapsed && counts[module.path] !== undefined && (
+                      {!railCollapsed && counts[module.path] !== undefined && (
                         <span className="mono-meta shrink-0">{counts[module.path]}</span>
                       )}
                     </>
@@ -307,14 +322,16 @@ export function KbLayout(): React.ReactElement {
           </ul>
         </nav>
 
-        <button
-          type="button"
-          onClick={() => setCollapsed((value) => !value)}
-          className="border-t border-rule px-3 py-2.5 text-left text-[12px] text-ink-faint hover:text-ink"
-          aria-label={collapsed ? 'expand the module rail' : 'collapse the module rail'}
-        >
-          {collapsed ? '»' : '« collapse'}
-        </button>
+        {!narrow && (
+          <button
+            type="button"
+            onClick={() => setCollapsed((value) => !value)}
+            className="border-t border-rule px-3 py-2.5 text-left text-[12px] text-ink-faint hover:text-ink"
+            aria-label={railCollapsed ? 'expand the module rail' : 'collapse the module rail'}
+          >
+            {railCollapsed ? '»' : '« collapse'}
+          </button>
+        )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

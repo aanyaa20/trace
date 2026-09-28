@@ -10,8 +10,8 @@ export function MapPage(): React.ReactElement {
   return (
     <main className="flex min-h-0 flex-1 flex-col bg-paper">
       <div className="shrink-0 border-b border-rule px-6 py-3">
-        <div className="flex items-center gap-2">
-          <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-0">
             <p className="eyebrow">embedding map</p>
             <p className="mono-meta mt-0.5">
               every chunk projected to three PCA components, coloured by modality
@@ -19,7 +19,7 @@ export function MapPage(): React.ReactElement {
           </div>
 
           <form
-            className="ml-auto flex gap-1"
+            className="ml-auto flex min-w-0 gap-1 max-md:w-full"
             onSubmit={(event) => {
               event.preventDefault();
               setProjected(query.trim() || null);
@@ -29,7 +29,7 @@ export function MapPage(): React.ReactElement {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="project a query into the same basis"
-              className="w-72 rounded-sm border border-rule bg-surface px-2.5 py-1.5 text-[13px] text-ink placeholder:text-ink-faint focus:border-ink-faint focus:outline-none"
+              className="w-72 min-w-0 max-md:flex-1 rounded-sm border border-rule bg-surface px-2.5 py-1.5 text-[13px] text-ink placeholder:text-ink-faint focus:border-ink-faint focus:outline-none"
             />
             <button
               type="submit"

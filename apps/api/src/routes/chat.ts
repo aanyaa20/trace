@@ -18,6 +18,10 @@ import { runAgent } from '../agent/graph.js';
 import type { ConversationTurn } from '../agent/state.js';
 import { SseStream } from '../services/sse.js';
 
+const INTERRUPTED =
+  'This answer was interrupted: the page was closed before it finished. Ask again to get it.';
+const FAILED = 'This answer failed to generate because of a server error. Ask again to retry it.';
+
 const kbParams = z.object({ id: z.string().uuid() });
 const conversationParams = z.object({ conversationId: z.string().uuid() });
 const messageParams = z.object({ messageId: z.string().uuid() });
@@ -295,6 +299,24 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
         onToken: (text) => stream.send('token', { type: 'token', text }),
       });
 
+      // The reader left before the answer finished: the run stopped because
+      // the page closed, not because a model failed. Stored as what happened,
+      // since the thread will show it the next time it is opened.
+      if (controller.signal.aborted) {
+        await db
+          .update(messages)
+          .set({
+            status: 'failed',
+            error: INTERRUPTED,
+            content: INTERRUPTED,
+            abstained: true,
+            trace: result.trace,
+            latencyMs: Date.now() - started,
+          })
+          .where(eq(messages.id, messageId));
+        return reply;
+      }
+
       stream.send('citations', { type: 'citations', citations: result.citations });
       stream.send('done', {
         type: 'done',
@@ -316,12 +338,20 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
         })
         .where(eq(messages.id, messageId));
     } catch (cause) {
-      const message = toError(cause).message;
+      const message = controller.signal.aborted ? INTERRUPTED : toError(cause).message;
       request.log.error({ err: cause, messageId }, 'agent run failed');
       stream.send('error', { type: 'error', code: 'agent_failed', message });
       await db
         .update(messages)
-        .set({ status: 'failed', error: message, latencyMs: Date.now() - started })
+        // The history returns content, not status: without text here a failed
+        // turn reopened as an empty bubble.
+        .set({
+          status: 'failed',
+          error: message,
+          content: controller.signal.aborted ? INTERRUPTED : FAILED,
+          abstained: true,
+          latencyMs: Date.now() - started,
+        })
         .where(eq(messages.id, messageId));
     } finally {
       stream.close();

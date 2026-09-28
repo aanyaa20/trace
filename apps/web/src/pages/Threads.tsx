@@ -3,16 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import type { ConversationSummary } from '@trace/contracts';
 import { api } from '../lib/api.js';
 import { useKb } from './KbLayout.js';
+import { ago } from '../lib/format.js';
 import { EmptyState, PageHeader, SkeletonRows } from '../components/ui.js';
 
+/** Recent threads by how long ago, the way the overview lists them; older
+ *  ones by date. A bare "23:57" beside "00:05" read as the same day. */
 function when(iso: string): string {
-  const date = new Date(iso);
-  const days = (Date.now() - date.getTime()) / 86_400_000;
-  if (days < 1) {
-    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  }
-  if (days < 7) return date.toLocaleDateString(undefined, { weekday: 'short' });
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const days = (Date.now() - new Date(iso).getTime()) / 86_400_000;
+  if (days < 7) return ago(iso);
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+/** The thread's name as the reader should see it. Titles are cut to a fixed
+ *  length when a thread is created; when the full first question is to hand,
+ *  it is shown instead of the cut copy, once. */
+function titleOf(thread: ConversationSummary): string {
+  const cut = thread.title.endsWith('\u2026') ? thread.title.slice(0, -1) : null;
+  return cut && thread.preview?.startsWith(cut) ? thread.preview : thread.title;
 }
 
 /**
@@ -146,8 +153,8 @@ export function Threads(): React.ReactElement {
                     onClick={() => void navigate(`/app/kb/${kb.id}/ask?thread=${thread.id}`)}
                     className="min-w-0 flex-1 text-left"
                   >
-                    <p className="truncate text-[13px] font-medium text-ink">{thread.title}</p>
-                    {thread.preview && thread.preview !== thread.title && (
+                    <p className="truncate text-[13px] font-medium text-ink">{titleOf(thread)}</p>
+                    {thread.preview && thread.preview !== titleOf(thread) && (
                       <p className="mono-meta truncate">{thread.preview}</p>
                     )}
                   </button>

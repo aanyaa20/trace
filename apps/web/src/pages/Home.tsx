@@ -357,7 +357,7 @@ export function Home(): React.ReactElement {
       </main>
 
       <footer className="border-t border-rule px-6 py-6">
-        <p className="mono-meta mx-auto max-w-[1100px]">
+        <p className="mono-meta mx-auto max-w-[1100px] px-6">
           trace · answers from your own documents, with citations that resolve
         </p>
       </footer>

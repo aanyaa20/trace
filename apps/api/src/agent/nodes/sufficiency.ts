@@ -33,6 +33,24 @@ export function isDataRegion(chunk: RetrievedChunk): boolean {
   return chunk.visual?.type === 'chart' || chunk.visual?.type === 'table';
 }
 
+/**
+ * Text that was read off a picture — OCR of a diagram or scan, a vision
+ * model's description, any image region — rather than written as prose. The
+ * cross-encoder is trained on prose and scores these fragments low however
+ * well they answer: the architecture diagram, graded 0.95 for "what are the
+ * stages of the pipeline in the architecture diagram", was vetoed by it.
+ */
+export function readFromImage(chunk: RetrievedChunk): boolean {
+  return (
+    isDataRegion(chunk) ||
+    chunk.visual !== null ||
+    chunk.modality === 'image' ||
+    chunk.source === 'ocr' ||
+    chunk.source === 'vision' ||
+    chunk.source === 'caption'
+  );
+}
+
 /** Whether one kept chunk clears the floor for whichever judge kept it. */
 export function isStrong(chunk: RetrievedChunk, limits: SufficiencyThresholds): boolean {
   return chunk.gradedBy === 'rerank'
@@ -89,7 +107,8 @@ export function decide(state: AgentState, limits: SufficiencyThresholds): {
   // but only near certainty: on the calibration set every relevant passage
   // scored 0.99+ and every trap, off-topic and unsupported pair 0.00-0.03.
   //
-  // A chart or table region is exempt from the reranker's agreement. The
+  // Text read from an image — a chart or table region above all — is exempt
+  // from the reranker's agreement. The
   // cross-encoder is trained on prose passages and scores a grid of numbers
   // poorly however well it answers: the correct market-size chart scored 0.22
   // for "which year was highest" while the grader, reading it, gave 0.9. Its
@@ -100,7 +119,7 @@ export function decide(state: AgentState, limits: SufficiencyThresholds): {
       : chunk.score >= limits.singleSourceScore &&
         (chunk.rerankScore === null ||
           chunk.rerankScore >= SINGLE_SOURCE_RERANK ||
-          isDataRegion(chunk)),
+          readFromImage(chunk)),
   );
   // The question named the page or slide, retrieval went there by metadata,
   // and the grader confirmed the passage answers it: that is the evidence.

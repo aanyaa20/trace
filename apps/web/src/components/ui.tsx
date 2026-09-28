@@ -24,7 +24,7 @@ export function PageHeader({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="page-title">{title}</h1>
         {meta && <span className="mono-meta">{meta}</span>}
-        {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+        {actions && <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
       {lede && (
         <p className="measure mt-1.5 text-[13px] leading-relaxed text-ink-muted">{lede}</p>

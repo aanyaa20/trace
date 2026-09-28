@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ConversationSummary, Document, EvalRun, Modality } from '@trace/contracts';
 import { api } from '../lib/api.js';
-import { FileIcon } from '../components/FileIcon.js';
+import { FileIcon, modalityTint } from '../components/FileIcon.js';
 import { EmptyState, PageHeader, Panel, Stat } from '../components/ui.js';
 import { useKb } from './KbLayout.js';
+import { ago } from '../lib/format.js';
+import { displayName, isMail, mailParts } from '../lib/mail.js';
 
 const MODALITY_LABEL: Record<Modality, string> = {
   text: 'text',
@@ -14,15 +16,6 @@ const MODALITY_LABEL: Record<Modality, string> = {
   video: 'video',
 };
 
-function ago(iso: string): string {
-  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 90) return 'just now';
-  const minutes = seconds / 60;
-  if (minutes < 60) return `${Math.round(minutes)}m ago`;
-  const hours = minutes / 60;
-  if (hours < 24) return `${Math.round(hours)}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
 
 /**
  * The knowledge base's front door. A corpus is a thing you return to, so the
@@ -135,18 +128,15 @@ export function Overview(): React.ReactElement {
           <div className="mt-5">
             <p className="eyebrow pb-2">composition</p>
             <div className="flex h-2 overflow-hidden rounded-full">
-              {byModality.map((entry, index) => (
+              {byModality.map((entry) => (
                 <span
                   key={entry.modality}
                   title={`${entry.count} ${MODALITY_LABEL[entry.modality]}`}
                   style={{
                     width: `${(entry.count / total) * 100}%`,
-                    backgroundColor:
-                      index % 3 === 0
-                        ? 'var(--vermillion)'
-                        : index % 3 === 1
-                          ? 'var(--moss)'
-                          : 'var(--ochre)',
+                    // Each modality in its icon's colour. Cycling three theme
+                    // colours gave text and audio the same one.
+                    backgroundColor: modalityTint(entry.modality),
                     opacity: 0.85,
                   }}
                 />
@@ -154,7 +144,12 @@ export function Overview(): React.ReactElement {
             </div>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
               {byModality.map((entry) => (
-                <span key={entry.modality} className="mono-meta">
+                <span key={entry.modality} className="mono-meta inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ backgroundColor: modalityTint(entry.modality) }}
+                  />
                   {MODALITY_LABEL[entry.modality]} · {entry.count}
                 </span>
               ))}
@@ -162,7 +157,9 @@ export function Overview(): React.ReactElement {
           </div>
         )}
 
-        <div className="mt-7 flex flex-wrap gap-5">
+        {/* Two equal columns that fill the row, lined up with the stat cards
+            above; stacked on a narrow screen. */}
+        <div className="mt-7 grid gap-5 lg:grid-cols-2">
           <Panel
             title="recent documents"
             action={
@@ -189,12 +186,13 @@ export function Overview(): React.ReactElement {
                       onClick={() => void navigate(`/app/kb/${kb.id}/ask?doc=${doc.id}`)}
                       className="list-row"
                     >
-                      <FileIcon modality={doc.modality} size={28} />
+                      <FileIcon modality={doc.modality} size={28} mail={isMail(doc)} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] text-ink">{doc.filename}</span>
+                        <span className="block truncate text-[13px] text-ink">{displayName(doc)}</span>
                         <span className="mono-meta">
-                          {doc.chunkCount} chunk{doc.chunkCount === 1 ? '' : 's'} ·{' '}
-                          {MODALITY_LABEL[doc.modality]}
+                          {isMail(doc)
+                            ? `mail${mailParts(doc).sender ? ` · from ${mailParts(doc).sender}` : ''}`
+                            : `${doc.chunkCount} chunk${doc.chunkCount === 1 ? '' : 's'} · ${MODALITY_LABEL[doc.modality]}`}
                         </span>
                       </span>
                       <span className="mono-meta shrink-0">{ago(doc.createdAt)}</span>

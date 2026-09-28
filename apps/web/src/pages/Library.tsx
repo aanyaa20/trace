@@ -361,20 +361,20 @@ export function Library(): React.ReactElement {
                     </span>
                   </button>
 
-                  <span className="mono-meta w-20 shrink-0 text-right">
+                  <span className="mono-meta w-20 shrink-0 text-right max-md:hidden">
                     {formatBytes(document.sizeBytes)}
                   </span>
-                  <span className="mono-meta w-16 shrink-0 text-right">
+                  <span className="mono-meta w-16 shrink-0 text-right max-md:hidden">
                     {mail ? 'MAIL' : modalityLabel(document.modality)}
                   </span>
-                  <span className="mono-meta w-28 shrink-0 text-right">
+                  <span className="mono-meta w-28 shrink-0 text-right max-md:hidden">
                     {formatDate(document.createdAt)}
                   </span>
-                  <span className="flex w-32 shrink-0 justify-end">
+                  <span className="flex w-32 shrink-0 justify-end max-md:w-auto">
                     <StatusPill document={document} live={library.progress[document.id]} />
                   </span>
 
-                  <span className="flex w-[118px] shrink-0 items-center justify-end gap-3">
+                  <span className="flex w-[118px] shrink-0 items-center justify-end gap-3 max-md:hidden">
                     <button
                       type="button"
                       onClick={() => setInspecting(document.id)}
@@ -593,7 +593,7 @@ export function Library(): React.ReactElement {
           </p>
         )}
 
-        <div className="mt-4 flex items-center gap-1 border-b border-rule">
+        <div className="mt-4 flex items-center gap-1 overflow-x-auto scroll-slim border-b border-rule">
           {TYPE_FILTERS.map((filter) => {
             const active = filter.key === typeFilter;
             return (
@@ -601,7 +601,7 @@ export function Library(): React.ReactElement {
                 key={filter.key}
                 type="button"
                 onClick={() => setTypeFilter(filter.key)}
-                className="relative px-3 py-2 text-[13px]"
+                className="relative shrink-0 whitespace-nowrap px-3 py-2 text-[13px]"
                 style={{
                   color: active ? 'var(--ink)' : 'var(--ink-faint)',
                   transition: 'color var(--dur) var(--ease-out)',
@@ -670,11 +670,11 @@ export function Library(): React.ReactElement {
             <div className="panel min-w-0">
             <div className="panel-head">
               <span className="eyebrow min-w-0 flex-1">name</span>
-              <span className="eyebrow w-20 text-right">size</span>
-              <span className="eyebrow w-16 text-right">type</span>
-              <span className="eyebrow w-28 text-right">added</span>
-              <span className="eyebrow w-32 text-right">status</span>
-              <span className="w-[118px]" />
+              <span className="eyebrow w-20 text-right max-md:hidden">size</span>
+              <span className="eyebrow w-16 text-right max-md:hidden">type</span>
+              <span className="eyebrow w-28 text-right max-md:hidden">added</span>
+              <span className="eyebrow w-32 text-right max-md:w-auto">status</span>
+              <span className="w-[118px] max-md:hidden" />
             </div>
 
             {rows.map((document) => (
