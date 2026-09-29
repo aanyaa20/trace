@@ -16,7 +16,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from ..config import settings
+from ..config import LITE, settings
 from ..registry import LazyModel, registry
 
 if TYPE_CHECKING:
@@ -42,6 +42,10 @@ def _sigmoid(logit: float) -> float:
 
 def rerank(query: str, passages: list[str]) -> tuple[list[float], list[float]]:
     """Returns (logits, probabilities), aligned with the input passages."""
+    if LITE:
+        # Surfaced as a 503, which every caller already treats as "no
+        # reranker": the api grades with the LLM alone.
+        raise RuntimeError("the reranker is not available in lite mode")
     prepared = [passage if passage.strip() else " " for passage in passages]
     logits = [float(score) for score in rerank_model.get().rerank(query, prepared)]
     return logits, [_sigmoid(logit) for logit in logits]

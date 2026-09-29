@@ -11,6 +11,7 @@ import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..config import LITE
 from ..registry import LazyModel, registry
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,10 @@ def read_lines(image_path: str) -> list["Line"]:
     layout.py turns them into regions, charts and tables."""
     from ..extractors.layout import Line
 
+    # Lite mode has no local OCR, so no boxes: text comes from a vision model
+    # through read_text instead, and geometry-based chart reading is skipped.
+    if LITE:
+        return []
     engine = ocr_model.get()
 
     with _ocr_lock:
@@ -105,6 +110,10 @@ def read_text(image_path: str) -> str:
     rather than as the order its labels happen to sit top to bottom."""
     from ..extractors import layout
 
+    if LITE:
+        from . import vision
+
+        return vision.transcribe_text(image_path)
     lines = read_lines(image_path)
     if not lines:
         return ""

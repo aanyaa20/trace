@@ -4,8 +4,8 @@ import logging
 import re
 from pathlib import Path
 
-from ..config import settings
-from ..models.ocr import read_lines
+from ..config import LITE, settings
+from ..models.ocr import read_lines, read_text
 from . import layout
 from ..schemas import ExtractBlock, ExtractResponse
 
@@ -102,11 +102,19 @@ def extract_pdf(path: str, document_id: str) -> ExtractResponse:
             page.get_pixmap(matrix=fitz.Matrix(zoom, zoom)).save(str(image_path))
 
             try:
-                regions = layout.analyse(read_lines(str(image_path)))
+                if LITE:
+                    # A scanned page read by a vision model; no boxes, so no
+                    # separate chart or table regions for it.
+                    lite_text = read_text(str(image_path))
+                    regions = []
+                else:
+                    lite_text = None
+                    regions = layout.analyse(read_lines(str(image_path)))
             except Exception as exc:
                 warnings.append(f"ocr failed on page {index + 1}: {exc}")
                 logger.warning("ocr failed for %s page %s: %s", document_id, index + 1, exc)
                 regions = []
+                lite_text = None
 
             ocr_pages += 1
             blocks.append(
@@ -114,7 +122,7 @@ def extract_pdf(path: str, document_id: str) -> ExtractResponse:
                     ordinal=index,
                     kind="text",
                     source="ocr",
-                    text=layout.reading_order_text(regions),
+                    text=lite_text if lite_text is not None else layout.reading_order_text(regions),
                     page=index + 1,
                     imagePath=str(image_path),
                 )

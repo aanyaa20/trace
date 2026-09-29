@@ -1,0 +1,14 @@
+# Render Blueprint: trace "lite" on one free web service.
+#   Render dashboard -> New -> Blueprint -> this repository.
+# Secrets are not listed here; deploy/deploy-render.sh sets them through the
+# Render API from .env.deploy on your machine. Until it has run, the service
+# starts without a database and restarts; that is expected.
+services:
+  - type: web
+    name: trace
+    runtime: docker
+    plan: free
+    dockerfilePath: ./render/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/healthz
+    autoDeploy: true

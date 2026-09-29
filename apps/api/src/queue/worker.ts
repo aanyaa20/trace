@@ -84,5 +84,9 @@ const shutdown = (signal: string): void => {
     });
 };
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+// In the api's process the api owns shutdown; a second handler would race it
+// to process.exit and cut a streaming answer short.
+if (!env.RUN_WORKER_IN_PROCESS) {
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+}

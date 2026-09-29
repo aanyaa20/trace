@@ -29,6 +29,9 @@ async function main(): Promise<void> {
 
   const app = await buildServer();
   await app.listen({ host: env.API_HOST, port: env.API_PORT });
+  if (env.RUN_WORKER_IN_PROCESS) {
+    await import('./queue/worker.js');
+  }
 
   const shutdown = (signal: string): void => {
     logger.info({ signal }, 'shutting down');

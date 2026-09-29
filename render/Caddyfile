@@ -1,0 +1,26 @@
+# Render terminates HTTPS and forwards to $PORT: Caddy serves plain HTTP
+# there, the built web app and /api proxied to the api process.
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT:10000} {
+	encode zstd gzip
+
+	request_body {
+		max_size 100MB
+	}
+
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:8080 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -65,6 +65,15 @@ class Settings:
     # ingestion. Off leaves only the OCR-geometry reading.
     vision_structure: bool
 
+    # "full" runs every model locally (about 3 GB of memory). "lite" replaces
+    # each with a hosted API so the service fits a 512 MB free instance:
+    # Gemini embeddings, Groq Whisper, vision-model text reading, and no
+    # reranker or CLIP. Same endpoints, same response shapes.
+    ml_mode: str
+    gemini_embedding_model: str
+    embedding_dim: int
+    groq_whisper_model: str
+
 
 settings = Settings(
     upload_dir=Path(os.getenv("UPLOAD_DIR", "/data/uploads")),
@@ -89,4 +98,10 @@ settings = Settings(
     gemini_vision_fallback_models=_list("GEMINI_VISION_FALLBACK_MODELS", "gemini-2.5-flash"),
     vision_timeout_sec=_int("VISION_TIMEOUT_SEC", 30),
     vision_structure=_bool("VISION_STRUCTURE", True),
+    ml_mode=os.getenv("ML_MODE", "full").strip().lower(),
+    gemini_embedding_model=os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001"),
+    embedding_dim=_int("EMBEDDING_DIM", 768),
+    groq_whisper_model=os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo"),
 )
+
+LITE = settings.ml_mode == "lite"

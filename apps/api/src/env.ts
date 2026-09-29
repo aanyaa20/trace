@@ -27,6 +27,18 @@ const envSchema = z.object({
    * wiped on restart (a Hugging Face Space), and fetches it back on demand.
    */
   BLOB_STORE: z.enum(['local', 'hf']).default('local'),
+  /**
+   * Runs the ingestion and mailbox workers inside the api process instead of
+   * as their own. One Node process instead of two is what fits a 512 MB free
+   * instance; everywhere with room, they stay separate.
+   */
+  RUN_WORKER_IN_PROCESS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  /** Width of the dense vectors: 384 for local bge-small, 768 for lite mode's
+   *  Gemini embeddings. Fixed per collection once it exists. */
+  DENSE_DIM: z.coerce.number().int().positive().default(384),
   HF_TOKEN: z.string().default(''),
   /** "<user>/<dataset>", created private by the deploy script. */
   HF_STORAGE_REPO: z.string().default(''),

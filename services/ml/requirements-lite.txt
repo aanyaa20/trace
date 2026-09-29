@@ -1,0 +1,21 @@
+# Lite mode (ML_MODE=lite): every model is a hosted API, so nothing here
+# loads weights. Fits a 512 MB free instance next to the api.
+fastapi==0.141.1
+uvicorn==0.53.0
+pydantic==2.13.5
+python-multipart==0.0.32
+
+# Extraction, unchanged from full mode
+pymupdf==1.28.2
+pillow==12.3.0
+python-docx==1.2.0
+python-pptx==1.0.2
+openpyxl==3.1.5
+
+# Hosted models: Gemini (embeddings, vision, captions), Groq (Whisper, vision)
+google-genai==2.23.0
+httpx
+
+# BM25 without onnxruntime
+mmh3==5.2.0
+snowballstemmer==3.0.1

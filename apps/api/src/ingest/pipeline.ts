@@ -228,7 +228,9 @@ export async function ingestDocument(documentId: string): Promise<void> {
         vector: {
           [DENSE_VECTOR]: entry.dense,
           [SPARSE_VECTOR]: { indices: entry.sparse.indices, values: entry.sparse.values },
-          ...(entry.clip ? { [CLIP_VECTOR]: entry.clip } : {}),
+          // Lite mode has no CLIP and returns empty vectors: the image is
+          // still indexed, by the text read from it.
+          ...(entry.clip && entry.clip.length > 0 ? { [CLIP_VECTOR]: entry.clip } : {}),
         },
         payload: {
           chunk_id: entry.id,

@@ -17,9 +17,10 @@ import logging
 import re
 from pathlib import Path
 
-from ..config import settings
+from ..config import LITE, settings
 from ..models import vision
 from ..models.ocr import read_lines
+from ..models.vision import transcribe_text
 from ..schemas import ExtractBlock, ExtractResponse, VisualRegion
 from . import layout
 from .layout import Line
@@ -422,6 +423,12 @@ def extract_image(path: str) -> ExtractResponse:
             logger.info("vision %s read %d regions in %s", model, len(seen), file_path.name)
 
     regions = _combine(found, seen, lines, width, height)
+    if LITE and not lines:
+        # No local OCR in lite mode: the page's text comes from a vision
+        # model's transcription, as one text region ahead of the others.
+        text = transcribe_text(str(file_path))
+        if text:
+            regions.insert(0, VisualRegion(id="t1", type="text", text=text, origin="vision"))
     region_blocks = _region_blocks(regions, str(file_path))
     first_text = next((region.text for region in regions if region.type == "text" and region.text), None)
     overview = _overview(summary, regions, first_text)

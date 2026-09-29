@@ -5,7 +5,7 @@ export const DENSE_VECTOR = 'dense' as const;
 export const CLIP_VECTOR = 'clip' as const;
 export const SPARSE_VECTOR = 'bm25' as const;
 
-export const DENSE_DIM = 384;
+export const DENSE_DIM = env.DENSE_DIM;
 export const CLIP_DIM = 512;
 
 export const COLLECTION = env.QDRANT_COLLECTION;

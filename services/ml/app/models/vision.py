@@ -289,3 +289,17 @@ CAPTION_PROMPT = (
     "including any visible text, numbers, axis labels or captions, in at most "
     "three sentences. Do not speculate about anything not visible."
 )
+
+
+TRANSCRIBE_PROMPT = """Transcribe all the text in this image, in reading order:
+top to bottom, and column by column where there are columns. Keep headings on
+their own lines and keep each paragraph together. For a table, write one row
+per line with cells separated by " | ". Output only the text, with no
+commentary, and do not add anything that is not printed in the image."""
+
+
+def transcribe_text(path: str) -> str:
+    """The image's text, read by a vision model: lite mode's OCR. Empty when
+    no provider could be reached."""
+    reply = ask(TRANSCRIBE_PROMPT, path, max_tokens=1500, max_wait_sec=45)
+    return reply.text.strip() if reply else ""

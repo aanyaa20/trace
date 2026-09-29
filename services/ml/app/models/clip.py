@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..config import settings
+from ..config import LITE, settings
 from ..registry import LazyModel, registry
 
 if TYPE_CHECKING:
@@ -49,6 +49,10 @@ _inference_lock = threading.Lock()
 
 
 def embed_images(paths: list[str]) -> list[list[float]]:
+    # Lite mode has no CLIP: an image is found by the text a vision model read
+    # from it. Empty vectors keep the response aligned with the request.
+    if LITE:
+        return [[] for _ in paths]
     import torch
     from PIL import Image
 
@@ -69,6 +73,8 @@ def embed_images(paths: list[str]) -> list[list[float]]:
 
 
 def embed_text(query: str) -> list[float]:
+    if LITE:
+        raise RuntimeError("CLIP is not available in lite mode")
     import torch
 
     bundle = clip_model.get()
