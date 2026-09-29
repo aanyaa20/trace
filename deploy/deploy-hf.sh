@@ -11,12 +11,24 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 [ -f .env.deploy ] || { echo ".env.deploy is missing" >&2; exit 1; }
-set -a
-# shellcheck disable=SC1091
-. ./.env
-# shellcheck disable=SC1091
-. ./.env.deploy
-set +a
+# Read as KEY=value text, not sourced as shell: a Neon URL carries "&", and
+# sourcing it would run the rest of the line as a command. Quotes around a
+# value are dropped; .env.deploy wins over .env.
+load() {
+  python3 - "$@" <<'PY'
+import re, shlex, sys
+for name in sys.argv[1:]:
+    for line in open(name):
+        m = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$", line)
+        if not m:
+            continue
+        value = m.group(2).strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        print(f"export {m.group(1)}={shlex.quote(value)}")
+PY
+}
+eval "$(load .env .env.deploy)"
 
 missing=()
 for name in HF_TOKEN HF_USERNAME NEON_DATABASE_URL QDRANT_CLOUD_URL QDRANT_CLOUD_API_KEY GROQ_API_KEY; do
