@@ -2,6 +2,7 @@ import type { RegionType, RetrievedChunk, VisualReading } from '@trace/contracts
 import { env } from '../../env.js';
 import { toError } from '../../errors.js';
 import { hybridSearch } from '../../retrieval/hybrid.js';
+import { ensureLocal } from '../../services/blobStore.js';
 import { mlClient } from '../../services/ml.js';
 import type { AgentContext, AgentState } from '../state.js';
 import { searchQuery } from './analyse.js';
@@ -75,6 +76,7 @@ export async function visualCheck(state: AgentState, ctx: AgentContext): Promise
     for (const chunk of imagesToRead(pool, env.VISUAL_CHECK_MAX_IMAGES)) {
       const region = chunk.visual;
       const crop = region && CROPPABLE.has(region.type) ? region.bbox : null;
+      await ensureLocal(chunk.imagePath!);
       const reply = await mlClient.visionAnswer({
         path: chunk.imagePath!,
         question,

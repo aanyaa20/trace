@@ -33,3 +33,4 @@ eval/reports/*
 *.pdf.bak
 .vscode/
 .idea/
+.env.deploy

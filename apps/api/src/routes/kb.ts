@@ -11,6 +11,10 @@ import { documents, knowledgeBases } from '../db/schema.js';
 import { notFound } from '../errors.js';
 import { COLLECTION, qdrant } from '../qdrant/client.js';
 import { removeKbFiles } from '../services/storage.js';
+import { derivedDir, forget } from '../services/blobStore.js';
+import { env } from '../env.js';
+import { rm } from 'node:fs/promises';
+import path from 'node:path';
 
 const idParamsSchema = z.object({ id: z.string().uuid() });
 
@@ -81,12 +85,15 @@ export default async function kbRoutes(app: FastifyInstance): Promise<void> {
     // deleted knowledge base until this removed them. Vectors go first, as
     // for a single document: a leftover row is visible, a leftover vector
     // only takes retrieval slots from live ones.
+    const held = await db.select({ id: documents.id }).from(documents).where(eq(documents.kbId, id));
     await qdrant.delete(COLLECTION, {
       wait: true,
       filter: { must: [{ key: 'kb_id', match: { value: id } }] },
     });
     await db.delete(knowledgeBases).where(eq(knowledgeBases.id, id));
     await removeKbFiles(id);
+    for (const doc of held) await rm(derivedDir(doc.id), { recursive: true, force: true });
+    await forget([path.join(env.UPLOAD_DIR, id), ...held.map((doc) => derivedDir(doc.id))], 'remove a knowledge base');
     return reply.status(204).send();
   });
 }

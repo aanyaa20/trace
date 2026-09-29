@@ -14,10 +14,22 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1),
 
   QDRANT_URL: z.string().url(),
+  /** Set for a hosted Qdrant (Qdrant Cloud); a local one needs none. */
+  QDRANT_API_KEY: z.string().default(''),
   QDRANT_COLLECTION: z.string().min(1).default('chunks'),
 
   ML_SERVICE_URL: z.string().url(),
   UPLOAD_DIR: z.string().min(1).default('/data/uploads'),
+  /**
+   * Where uploaded files persist beyond this machine's disk. "local" keeps
+   * them only on UPLOAD_DIR, which is right with a volume. "hf" also stores
+   * each file in a private Hugging Face dataset, for hosts whose disk is
+   * wiped on restart (a Hugging Face Space), and fetches it back on demand.
+   */
+  BLOB_STORE: z.enum(['local', 'hf']).default('local'),
+  HF_TOKEN: z.string().default(''),
+  /** "<user>/<dataset>", created private by the deploy script. */
+  HF_STORAGE_REPO: z.string().default(''),
   MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(536_870_912),
   MAX_URL_BYTES: z.coerce.number().int().positive().default(2_097_152),
   ALLOW_PRIVATE_URLS: booleanish.default('false'),

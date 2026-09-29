@@ -10,7 +10,14 @@ export const CLIP_DIM = 512;
 
 export const COLLECTION = env.QDRANT_COLLECTION;
 
-export const qdrant = new QdrantClient({ url: env.QDRANT_URL, checkCompatibility: false });
+export const qdrant = new QdrantClient({
+  url: env.QDRANT_URL,
+  ...(env.QDRANT_API_KEY ? { apiKey: env.QDRANT_API_KEY } : {}),
+  // Qdrant Cloud serves on 6333 behind HTTPS on 443; without this the client
+  // appends :6333 to an https URL that does not listen there.
+  ...(env.QDRANT_URL.startsWith('https://') ? { port: Number(new URL(env.QDRANT_URL).port || 443) } : {}),
+  checkCompatibility: false,
+});
 
 /** Payload stored with every point. Flat, so Qdrant can index and filter it. */
 export interface ChunkPayload {

@@ -9,6 +9,8 @@ import { badRequest, notFound } from '../errors.js';
 import { enqueueIngestion } from '../queue/queues.js';
 import { modalityForMime, persistStream, removeStoredFile, safeFilename, storagePathFor } from '../services/storage.js';
 import { COLLECTION, qdrant } from '../qdrant/client.js';
+import { rm } from 'node:fs/promises';
+import { derivedDir, forget } from '../services/blobStore.js';
 
 const kbParams = z.object({ id: z.string().uuid() });
 const documentParams = z.object({ id: z.string().uuid() });
@@ -140,6 +142,12 @@ export default async function documentRoutes(app: FastifyInstance): Promise<void
     await db.delete(documents).where(inArray(documents.id, ids));
     await removeStoredFile(document.storagePath);
     for (const child of attached) await removeStoredFile(child.storagePath);
+    // Rendered pages and keyframes, here and in the storage dataset.
+    for (const docId of ids) await rm(derivedDir(docId), { recursive: true, force: true });
+    await forget(
+      [document.storagePath, ...attached.map((child) => child.storagePath), ...ids.map(derivedDir)],
+      `remove ${document.filename}`,
+    );
 
     return reply.status(204).send();
   });

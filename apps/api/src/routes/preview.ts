@@ -8,6 +8,7 @@ import { db } from '../db/client.js';
 import { chunks, documents, knowledgeBases } from '../db/schema.js';
 import { badRequest, notFound } from '../errors.js';
 import { env } from '../env.js';
+import { ensureLocal } from '../services/blobStore.js';
 
 const params = z.object({ id: z.string().uuid() });
 const query = z.object({ page: z.coerce.number().int().positive().optional() });
@@ -61,6 +62,7 @@ export default async function previewRoutes(app: FastifyInstance): Promise<void>
     }
 
     const resolved = assertInsideUploads(filePath);
+    await ensureLocal(resolved);
     const stats = await stat(resolved).catch(() => null);
     if (!stats) throw notFound(`preview for document ${id}`);
 

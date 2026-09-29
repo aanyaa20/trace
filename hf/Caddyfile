@@ -1,0 +1,28 @@
+# The Space's single public port. Hugging Face terminates HTTPS in front of
+# it, so Caddy serves plain HTTP: the built web app, and /api proxied to the
+# api process in the same container.
+{
+	admin off
+	auto_https off
+}
+
+:7860 {
+	encode zstd gzip
+
+	request_body {
+		max_size 200MB
+	}
+
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:8080 {
+			# Answers stream as server-sent events.
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+}

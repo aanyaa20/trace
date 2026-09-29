@@ -8,6 +8,7 @@ import { internal, notFound, toError } from '../errors.js';
 import { publishIngestionEvent } from '../events/ingestionBus.js';
 import { COLLECTION, DENSE_VECTOR, SPARSE_VECTOR, qdrant, type ChunkPayload } from '../qdrant/client.js';
 import { CLIP_VECTOR } from '../qdrant/client.js';
+import { derivedDir, ensureLocal, persist } from '../services/blobStore.js';
 import { mlClient } from '../services/ml.js';
 import { planChunks, type PlannedChunk } from './chunk.js';
 
@@ -151,6 +152,9 @@ export async function ingestDocument(documentId: string): Promise<void> {
     .where(eq(documents.id, documentId));
 
   try {
+    // On a host whose disk is wiped on restart, a retried or re-run
+    // ingestion finds its file in the storage dataset rather than nowhere.
+    await ensureLocal(document.storagePath);
     await report(document, 'extracting');
     const extracted = await mlClient.extract({
       path: document.storagePath,
@@ -283,6 +287,9 @@ export async function ingestDocument(documentId: string): Promise<void> {
         .where(eq(documents.id, document.id));
     });
 
+    // The original and everything extraction rendered from it (scanned
+    // pages, keyframes) are what previews and citations open later.
+    await persist([document.storagePath, derivedDir(document.id)], `add ${document.filename}`);
     await report(document, 'completed', `${rows.length} chunks indexed`);
   } catch (cause) {
     const message = storableError(toError(cause).message);
