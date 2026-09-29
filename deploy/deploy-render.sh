@@ -98,8 +98,14 @@ rm -f /tmp/trace-env.json /tmp/trace-ds.json
 echo "    done"
 
 echo "==> deploying (the first build takes about 10 minutes)"
-deploy_id=$(curl -fsS "${rauth[@]}" -H 'content-type: application/json' -X POST "$render/services/$service_id/deploys" -d '{}' \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+# While another deploy is running, Render queues this one and answers with
+# an empty body; the newest deploy in the list is then the one to follow.
+curl -fsS -o /tmp/trace-deploy.json "${rauth[@]}" -H 'content-type: application/json' \
+  -X POST "$render/services/$service_id/deploys" -d '{}'
+deploy_id=$(python3 -c 'import json,sys; print(json.load(open("/tmp/trace-deploy.json"))["id"])' 2>/dev/null \
+  || curl -fsS "${rauth[@]}" "$render/services/$service_id/deploys?limit=1" \
+       | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["deploy"]["id"])')
+rm -f /tmp/trace-deploy.json
 for _ in $(seq 1 90); do
   state=$(curl -fsS "${rauth[@]}" "$render/services/$service_id/deploys/$deploy_id" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')
   case "$state" in

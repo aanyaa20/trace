@@ -33,6 +33,13 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=node-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=caddy:2.10-alpine /usr/bin/caddy /usr/bin/caddy
+# The official binary carries a file capability (to bind ports below 1024).
+# Hosts that run containers with no-new-privileges, Render among them,
+# refuse to execute such a file at all: "Operation not permitted". Caddy
+# listens on a high port here and needs none, so the capability is removed.
+RUN apt-get update && apt-get install -y --no-install-recommends libcap2-bin \
+ && setcap -r /usr/bin/caddy \
+ && apt-get purge -y libcap2-bin && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
 COPY services/ml/requirements-lite.txt /srv/ml/requirements-lite.txt
