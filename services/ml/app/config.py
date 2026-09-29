@@ -95,7 +95,11 @@ settings = Settings(
     groq_api_key=os.getenv("GROQ_API_KEY", ""),
     vision_providers=_list("VISION_PROVIDERS", "groq,gemini"),
     groq_vision_model=os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b"),
-    gemini_vision_fallback_models=_list("GEMINI_VISION_FALLBACK_MODELS", "gemini-2.5-flash"),
+    # gemini-2.5-flash was withdrawn for new keys; each of these has its own
+    # free quota, so one spent model does not stop the rest.
+    gemini_vision_fallback_models=_list(
+        "GEMINI_VISION_FALLBACK_MODELS", "gemini-3.5-flash,gemini-3.1-flash-lite,gemini-flash-latest"
+    ),
     vision_timeout_sec=_int("VISION_TIMEOUT_SEC", 30),
     vision_structure=_bool("VISION_STRUCTURE", True),
     ml_mode=os.getenv("ML_MODE", "full").strip().lower(),

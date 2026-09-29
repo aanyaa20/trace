@@ -55,6 +55,9 @@ export async function persist(localPaths: string[], title: string): Promise<void
       accessToken: env.HF_TOKEN,
       commitTitle: title.slice(0, 200),
       files: entries.map((entry) => ({ path: entry.remote, content: pathToFileURL(entry.file) })),
+      // Xet chunk-hashing holds a large file's chunks in memory; plain LFS
+      // streams it. On a 512 MB instance the difference was ~100 MB.
+      useXet: false,
     });
   } catch (cause) {
     logger.error({ err: String(cause), files: entries.length }, 'could not copy files to the storage dataset');

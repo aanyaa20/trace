@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..config import LITE, settings
 from ..models.ocr import read_lines, read_text
+from ..models.vision import VisionUnavailable
 from . import layout
 from ..schemas import ExtractBlock, ExtractResponse
 
@@ -63,6 +64,10 @@ def extract_pdf(path: str, document_id: str) -> ExtractResponse:
     """One block per page. A page yielding almost no extractable text is
     treated as scanned, rendered at PDF_OCR_DPI and read with OCR."""
     import fitz
+
+    # MuPDF's cache of decoded objects defaults to 256 MB, half a free-tier
+    # instance on its own. 32 MB still holds a page's fonts and images.
+    fitz.TOOLS.store_maxsize = 32 * 1024 * 1024
     from PIL import Image
 
     blocks: list[ExtractBlock] = []
@@ -99,7 +104,11 @@ def extract_pdf(path: str, document_id: str) -> ExtractResponse:
             # The DPI matters: below about 150 the detector starts dropping
             # small type, and above 300 the render dominates ingestion time.
             zoom = settings.pdf_ocr_dpi / 72.0
-            page.get_pixmap(matrix=fitz.Matrix(zoom, zoom)).save(str(image_path))
+            pixmap = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+            pixmap.save(str(image_path))
+            # A 200 DPI page is about 11 MB of pixels; released now, not at
+            # the end of a 33-page document.
+            del pixmap
 
             try:
                 if LITE:
@@ -110,6 +119,8 @@ def extract_pdf(path: str, document_id: str) -> ExtractResponse:
                 else:
                     lite_text = None
                     regions = layout.analyse(read_lines(str(image_path)))
+            except VisionUnavailable:
+                raise
             except Exception as exc:
                 warnings.append(f"ocr failed on page {index + 1}: {exc}")
                 logger.warning("ocr failed for %s page %s: %s", document_id, index + 1, exc)

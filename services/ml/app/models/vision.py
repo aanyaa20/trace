@@ -55,7 +55,9 @@ def _has_key(provider: str) -> bool:
     return False
 
 
-def encode(path: str, bbox: tuple[float, float, float, float] | None = None) -> bytes:
+def encode(
+    path: str, bbox: tuple[float, float, float, float] | None = None, max_side: int = _MAX_SIDE
+) -> bytes:
     """JPEG bytes of the image, or of one normalised region of it with a
     margin, so a question about a chart is asked of the chart and its axis."""
     from PIL import Image
@@ -74,7 +76,7 @@ def encode(path: str, bbox: tuple[float, float, float, float] | None = None) -> 
                 min(height, int(y1 * height + pad_y)),
             )
         )
-    image.thumbnail((_MAX_SIDE, _MAX_SIDE))
+    image.thumbnail((max_side, max_side))
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=90)
     return buffer.getvalue()
@@ -172,10 +174,17 @@ def ask(
     """The first provider's answer, or None when none could be reached.
     Never raises: a missing reading costs one image some recall, while a
     raised error would fail the whole document."""
-    image = encode(path, bbox)
     name = Path(path).name
+    images: dict[int, bytes] = {}
 
     for provider, model in _candidates():
+        # Groq's free tier counts an image's tokens against a small per-minute
+        # budget, and a 1600-pixel page alone went over it ("Request too
+        # large"). It gets a smaller copy; Gemini keeps the sharper one.
+        side = 1024 if provider == "groq" else _MAX_SIDE
+        if side not in images:
+            images[side] = encode(path, bbox, side)
+        image = images[side]
         for attempt in range(_ATTEMPTS_PER_MODEL):
             try:
                 framed = prompt.replace("{BOX_ORDER}", BOX_ORDERS[provider])
@@ -194,6 +203,10 @@ def ask(
             except Exception as exc:  # noqa: BLE001 - every failure moves on
                 message = str(exc)
                 retryable = any(token in message for token in _RETRYABLE)
+                if "RESOURCE_EXHAUSTED" in message or "quota" in message.lower():
+                    # A spent daily quota does not come back in a second;
+                    # the next model has a quota of its own.
+                    retryable = False
                 logger.info(
                     "vision %s:%s attempt %d failed for %s: %s",
                     provider,
@@ -298,8 +311,21 @@ per line with cells separated by " | ". Output only the text, with no
 commentary, and do not add anything that is not printed in the image."""
 
 
+class VisionUnavailable(RuntimeError):
+    """No vision provider could be reached: quotas spent, or all overloaded."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "the free vision-model quota is used up right now, so text in images and "
+            "scanned pages cannot be read; upload this file again later"
+        )
+
+
 def transcribe_text(path: str) -> str:
-    """The image's text, read by a vision model: lite mode's OCR. Empty when
-    no provider could be reached."""
-    reply = ask(TRANSCRIBE_PROMPT, path, max_tokens=1500, max_wait_sec=45)
-    return reply.text.strip() if reply else ""
+    """The image's text, read by a vision model: lite mode's OCR. Raises
+    VisionUnavailable when nobody could look, so that is reported as what it
+    is rather than as a page with no text on it."""
+    reply = ask(TRANSCRIBE_PROMPT, path, max_tokens=1200, max_wait_sec=45)
+    if reply is None:
+        raise VisionUnavailable()
+    return reply.text.strip()

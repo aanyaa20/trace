@@ -65,9 +65,17 @@ def _gemini_embed(texts: list[str], task: str) -> list[list[float]]:
             ]
         }
         for attempt in range(6):
-            response = httpx.post(
-                url, params={"key": settings.gemini_api_key}, json=body, timeout=60
-            )
+            try:
+                response = httpx.post(
+                    url, params={"key": settings.gemini_api_key}, json=body, timeout=60
+                )
+            except httpx.TransportError:
+                # A dropped connection or a failed DNS lookup is as passing as
+                # a 503, and was failing whole documents.
+                if attempt == 5:
+                    raise
+                time.sleep(2.0 * 2**attempt)
+                continue
             if response.status_code == 200:
                 vectors.extend(item["values"] for item in response.json()["embeddings"])
                 break

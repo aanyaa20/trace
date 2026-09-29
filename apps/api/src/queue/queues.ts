@@ -99,3 +99,25 @@ export async function reconcileMailboxSchedules(
 
   return { restored };
 }
+
+/**
+ * Puts back in the queue every document left queued or processing with no
+ * job to carry it. A queue held only in memory (the free-tier image runs its
+ * own Redis) loses its jobs whenever the instance restarts: after an
+ * out-of-memory restart three uploads sat on "queued" and "processing" for
+ * good, with nothing ever going to pick them up.
+ */
+export async function requeueStranded(
+  stranded: Array<{ documentId: string; kbId: string }>,
+): Promise<number> {
+  if (stranded.length === 0) return 0;
+  const pending = await ingestionQueue.getJobs(['waiting', 'active', 'delayed', 'prioritized']);
+  const carried = new Set(pending.map((job) => job.data.documentId));
+  let requeued = 0;
+  for (const document of stranded) {
+    if (carried.has(document.documentId)) continue;
+    await ingestionQueue.add('ingest', document, { jobId: `${document.documentId}-requeued-${Date.now()}` });
+    requeued += 1;
+  }
+  return requeued;
+}

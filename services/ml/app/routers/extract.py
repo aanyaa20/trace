@@ -12,6 +12,7 @@ from ..extractors.media import extract_audio, extract_video
 from ..extractors.office import LOCAL_OFFICE, extract_office
 from ..extractors.pdf import extract_pdf
 from ..extractors.text import extract_delimited, extract_text
+from ..models.vision import VisionUnavailable
 from ..pool import run_blocking
 from ..schemas import ExtractRequest, ExtractResponse
 
@@ -70,6 +71,10 @@ async def extract(request: ExtractRequest) -> ExtractResponse:
         )
     except FileNotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
+    except VisionUnavailable as exc:
+        # A service limit, not a bad file: said as such, so the document's
+        # error tells the reader to try again later rather than to fix a scan.
+        raise HTTPException(503, str(exc)) from exc
     except (ValueError, TimeoutError) as exc:
         raise HTTPException(422, f"extraction failed for {resolved.name}: {exc}") from exc
     except Exception as exc:

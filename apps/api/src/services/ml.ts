@@ -62,7 +62,16 @@ async function call<TReq, TRes>(
     });
 
     if (!response.ok) {
-      const detail = await response.text().catch(() => '<unreadable body>');
+      const body = await response.text().catch(() => '<unreadable body>');
+      // FastAPI wraps its message as {"detail": "..."}; the sentence is what
+      // ends up on the document for a reader, not the JSON around it.
+      let detail = body;
+      try {
+        const parsed = JSON.parse(body) as { detail?: unknown };
+        if (typeof parsed.detail === 'string') detail = parsed.detail;
+      } catch {
+        // not JSON: keep the body as it is
+      }
       throw upstreamFailure(
         'ml',
         `POST ${path} returned ${response.status}: ${detail.slice(0, 500)}`,

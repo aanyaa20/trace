@@ -5,8 +5,9 @@ import { closeDatabase } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
 import { ensureCollection } from './qdrant/bootstrap.js';
 import { db } from './db/client.js';
-import { connectors } from './db/schema.js';
-import { reconcileMailboxSchedules } from './queue/queues.js';
+import { inArray } from 'drizzle-orm';
+import { connectors, documents } from './db/schema.js';
+import { reconcileMailboxSchedules, requeueStranded } from './queue/queues.js';
 import { toError } from './errors.js';
 
 async function main(): Promise<void> {
@@ -26,6 +27,15 @@ async function main(): Promise<void> {
   } else {
     logger.info({ connectors: rows.length }, 'mailbox schedules reconciled');
   }
+
+  // Uploads the queue lost track of, typically across a restart of an
+  // instance whose Redis lives in memory.
+  const stranded = await db
+    .select({ documentId: documents.id, kbId: documents.kbId })
+    .from(documents)
+    .where(inArray(documents.status, ['queued', 'processing']));
+  const requeued = await requeueStranded(stranded);
+  if (requeued > 0) logger.warn({ requeued }, 'requeued documents the queue had lost');
 
   const app = await buildServer();
   await app.listen({ host: env.API_HOST, port: env.API_PORT });
