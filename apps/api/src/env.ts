@@ -25,6 +25,13 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   COOKIE_SECURE: booleanish.default('false'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  /**
+   * Who may create an account: comma-separated emails or "@domain" entries.
+   * Empty leaves registration open, which is right on a laptop and wrong on
+   * a public URL, where every stranger's question spends the same free LLM
+   * quota as yours.
+   */
+  SIGNUP_ALLOWLIST: z.string().default(''),
 
   LLM_PROVIDER: z.enum(['groq', 'gemini', 'openai']).default('groq'),
   GEMINI_API_KEY: z.string().default(''),

@@ -4,7 +4,8 @@ import argon2 from 'argon2';
 import { loginRequestSchema, registerRequestSchema, type AuthResponse } from '@trace/contracts';
 import { db } from '../db/client.js';
 import { users } from '../db/schema.js';
-import { conflict, unauthorized } from '../errors.js';
+import { env } from '../env.js';
+import { conflict, forbidden, unauthorized } from '../errors.js';
 
 // OWASP-recommended argon2id settings that stay under ~100ms on a laptop core.
 const HASH_OPTIONS = {
@@ -18,10 +19,24 @@ function normaliseEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Whether an email may register, under SIGNUP_ALLOWLIST. */
+export function signupAllowed(email: string, allowlist = env.SIGNUP_ALLOWLIST): boolean {
+  const entries = allowlist
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  if (entries.length === 0) return true;
+  const address = email.toLowerCase();
+  return entries.some((entry) => (entry.startsWith('@') ? address.endsWith(entry) : address === entry));
+}
+
 export default async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/register', async (request, reply) => {
     const { email, password } = registerRequestSchema.parse(request.body);
     const normalised = normaliseEmail(email);
+    if (!signupAllowed(normalised)) {
+      throw forbidden('registration on this server is by invitation; ask its owner to add your email');
+    }
 
     const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, normalised));
     if (existing.length > 0) {

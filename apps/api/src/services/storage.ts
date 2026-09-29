@@ -80,3 +80,8 @@ export async function persistBuffer(body: Buffer, destination: string): Promise<
 export async function removeStoredFile(storagePath: string): Promise<void> {
   await rm(storagePath, { force: true });
 }
+
+/** Every file stored for one knowledge base: its directory on the volume. */
+export async function removeKbFiles(kbId: string): Promise<void> {
+  await rm(path.join(env.UPLOAD_DIR, kbId), { recursive: true, force: true });
+}

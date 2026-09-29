@@ -9,6 +9,8 @@ import {
 import { db } from '../db/client.js';
 import { documents, knowledgeBases } from '../db/schema.js';
 import { notFound } from '../errors.js';
+import { COLLECTION, qdrant } from '../qdrant/client.js';
+import { removeKbFiles } from '../services/storage.js';
 
 const idParamsSchema = z.object({ id: z.string().uuid() });
 
@@ -68,15 +70,23 @@ export default async function kbRoutes(app: FastifyInstance): Promise<void> {
   app.delete('/kb/:id', async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
 
-    // Documents, chunks, conversations and messages cascade in Postgres. The
-    // matching Qdrant points are removed by the ingestion module in phase 1,
-    // which owns every write to the collection.
-    const deleted = await db
-      .delete(knowledgeBases)
-      .where(and(eq(knowledgeBases.id, id), eq(knowledgeBases.userId, request.session.sub)))
-      .returning({ id: knowledgeBases.id });
+    const [owned] = await db
+      .select({ id: knowledgeBases.id })
+      .from(knowledgeBases)
+      .where(and(eq(knowledgeBases.id, id), eq(knowledgeBases.userId, request.session.sub)));
+    if (!owned) throw notFound('knowledge base');
 
-    if (deleted.length === 0) throw notFound('knowledge base');
+    // Documents, chunks, conversations and messages cascade in Postgres; the
+    // vectors and the stored files do not, and were left behind by every
+    // deleted knowledge base until this removed them. Vectors go first, as
+    // for a single document: a leftover row is visible, a leftover vector
+    // only takes retrieval slots from live ones.
+    await qdrant.delete(COLLECTION, {
+      wait: true,
+      filter: { must: [{ key: 'kb_id', match: { value: id } }] },
+    });
+    await db.delete(knowledgeBases).where(eq(knowledgeBases.id, id));
+    await removeKbFiles(id);
     return reply.status(204).send();
   });
 }

@@ -1,0 +1,78 @@
+# Production overrides, layered on docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# What changes from development:
+#   - api and worker run the compiled build, not tsx watch, and the source is
+#     no longer bind-mounted into them;
+#   - web is the static build served by Caddy, which also proxies /api and
+#     holds the HTTPS certificate;
+#   - nothing but Caddy is published: Postgres, Redis, Qdrant, the ml service
+#     and the api are reachable only on the compose network;
+#   - every service restarts with the machine.
+#
+# deploy/deploy.sh runs this against a server; see DEPLOY.md.
+
+services:
+  postgres:
+    ports: !reset []
+    restart: always
+
+  redis:
+    ports: !reset []
+    restart: always
+
+  qdrant:
+    ports: !reset []
+    restart: always
+
+  ml:
+    ports: !reset []
+    restart: always
+
+  api:
+    build:
+      target: runner
+    command: ["node", "dist/index.js"]
+    ports: !reset []
+    restart: always
+    environment:
+      NODE_ENV: production
+      COOKIE_SECURE: "true"
+      CORS_ORIGIN: https://${TRACE_DOMAIN:?TRACE_DOMAIN must be set in .env}
+    volumes: !override
+      - uploads:/data/uploads
+      - ./eval:/app/eval
+
+  worker:
+    build:
+      target: runner
+    command: ["node", "dist/queue/worker.js"]
+    restart: always
+    environment:
+      NODE_ENV: production
+    volumes: !override
+      - uploads:/data/uploads
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: prod
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    restart: always
+    environment:
+      TRACE_DOMAIN: ${TRACE_DOMAIN:?TRACE_DOMAIN must be set in .env}
+    volumes: !override
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: !override
+      api:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:

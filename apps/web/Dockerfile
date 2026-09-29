@@ -20,3 +20,19 @@ COPY apps/web apps/web
 RUN pnpm --filter @trace/contracts build
 EXPOSE 5173
 CMD ["pnpm", "--filter", "@trace/web", "dev"]
+
+# Production: the app built to static files and served by Caddy, which also
+# proxies /api to the api container and obtains the HTTPS certificate. The
+# api is reached on the same origin, so the session cookie needs no
+# cross-site settings and there is no CORS to get wrong.
+FROM deps AS build
+COPY packages/contracts packages/contracts
+COPY apps/web apps/web
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
+RUN pnpm --filter @trace/contracts build && pnpm --filter @trace/web build
+
+FROM caddy:2.10-alpine AS prod
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/apps/web/dist /srv
+EXPOSE 80 443

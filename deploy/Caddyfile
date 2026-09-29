@@ -1,0 +1,34 @@
+# One origin for everything. TRACE_DOMAIN is the public hostname; Caddy gets
+# and renews its Let's Encrypt certificate on its own. With no domain of your
+# own, <server-ip-with-dashes>.sslip.io resolves to the server and works.
+{$TRACE_DOMAIN} {
+	encode zstd gzip
+
+	# Uploads are checked by the api against MAX_UPLOAD_BYTES; this only
+	# stops the proxy refusing them first.
+	request_body {
+		max_size 200MB
+	}
+
+	handle_path /api/* {
+		reverse_proxy api:8080 {
+			# Answers stream as server-sent events; buffering them would make
+			# every answer arrive at once, at the end.
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv
+		# Client-side routes (/app/kb/…) are the app's, not files.
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
